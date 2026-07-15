@@ -98,6 +98,16 @@ public class ManagerBootstrapRunner implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments args) {
         try {
+            // [Bug Fix] Clean up any broken PENDING_ manager left from a previous failed bootstrap.
+            // This happens when the key service was unreachable on first startup.
+            userRepository.findAll().stream()
+                .filter(u -> u.getRole() == User.Role.MANAGER &&
+                             u.getEmail() != null && u.getEmail().startsWith("PENDING_"))
+                .forEach(u -> {
+                    log.warn("[Bootstrap] Removing broken PENDING_ manager record (id={}) from previous failed startup.", u.getId());
+                    userRepository.delete(u);
+                });
+
             long existing = userRepository.countByRole(User.Role.MANAGER);
             if (existing > 0) {
                 log.info("[Bootstrap] Primary manager already registered — skipping initialisation.");

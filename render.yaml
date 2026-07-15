@@ -5,6 +5,10 @@ services:
     env: docker
     rootDir: space1-keyservice
     plan: free
+    disk:
+      name: keyservice-db
+      mountPath: /app
+      sizeGB: 1
     envVars:
       - key: MATIR_BANK_INTERNAL_SECRET
         generateValue: true
@@ -15,9 +19,13 @@ services:
     env: docker
     rootDir: space2-backend
     plan: free
+    disk:
+      name: backend-db
+      mountPath: /app
+      sizeGB: 1
     envVars:
       - key: MATIR_BANK_KEYSERVICE_URL
-        value: http://matir-bank-keyservice:7860
+        value: https://matir-bank-keyservice.onrender.com
       - key: MATIR_BANK_KEYSERVICE_SECRET
         fromService:
           name: matir-bank-keyservice
