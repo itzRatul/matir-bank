@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#080b12">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Manager Panel — Matir Bank</title>
+    <meta name="description" content="Matir Bank manager panel: system reports, admin management, interest rates, customer limits.">
+    <link rel="stylesheet" href="css/style.css?v=3">
+    <style>
+        /* ── Manager-specific overrides ── */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: var(--clr-card);
+            border: 1px solid var(--clr-border);
+            border-radius: var(--radius-lg);
+            padding: 1.4rem 1.6rem;
+            position: relative;
+            overflow: hidden;
+            transition: transform var(--transition), box-shadow var(--transition);
+        }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-card); }
+        .stat-card::before {
+            content: "";
+            position: absolute;
+            top: 0; right: 0;
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            opacity: 0.08;
+        }
+        .stat-card--blue::before   { background: var(--clr-primary); }
+        .stat-card--green::before  { background: var(--clr-success); }
+        .stat-card--yellow::before { background: var(--clr-warning); }
+        .stat-card--purple::before { background: var(--clr-accent-2); }
+        .stat-card__icon  { font-size: 1.8rem; margin-bottom: 0.75rem; }
+        .stat-card__value {
+            font-family: var(--font-brand);
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--clr-text);
+            line-height: 1;
+            margin-bottom: 0.3rem;
+        }
+        .stat-card__label { font-size: 0.78rem; color: var(--clr-text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+        .stat-card__sub   { font-size: 0.75rem; color: var(--clr-text-dim); margin-top: 0.25rem; }
+
+        /* ── Config panel ── */
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.2rem;
+        }
+        .config-card {
+            background: var(--clr-surface-2);
+            border: 1px solid var(--clr-border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+        }
+        .config-card__label {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--clr-text-muted);
+            margin-bottom: 0.5rem;
+        }
+        .config-card__current {
+            font-family: var(--font-brand);
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--clr-accent);
+            margin-bottom: 1rem;
+        }
+        .config-edit-row {
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+        }
+        .config-edit-row input {
+            flex: 1;
+            padding: 0.55rem 0.8rem;
+            background: var(--clr-card);
+            border: 1px solid var(--clr-border);
+            border-radius: var(--radius-sm);
+            color: var(--clr-text);
+            font-size: 0.9rem;
+            outline: none;
+            font-family: var(--font-main);
+        }
+        .config-edit-row input:focus { border-color: var(--clr-primary); }
+
+        /* ── Report cards ── */
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.2rem;
+        }
+        .report-card {
+            background: var(--clr-card);
+            border: 1px solid var(--clr-border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+        }
+        .report-card__title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--clr-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 1rem;
+        }
+        .report-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.55rem 0;
+            border-bottom: 1px solid var(--clr-border);
+            font-size: 0.88rem;
+        }
+        .report-row:last-child { border-bottom: none; }
+        .report-row__key   { color: var(--clr-text-muted); }
+        .report-row__value { font-weight: 700; color: var(--clr-text); }
+
+        /* ── Admin list ── */
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px; height: 30px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all var(--transition);
+        }
+        .btn-icon--remove { background: rgba(255,71,87,0.1); color: var(--clr-danger); }
+        .btn-icon:hover { transform: scale(1.15); }
+
+        /* ── Tab filter ── */
+        .tab-filter {
+            display: flex;
+            gap: 4px;
+            background: var(--clr-surface-2);
+            border: 1px solid var(--clr-border);
+            border-radius: var(--radius-sm);
+            padding: 4px;
+        }
+        .tab-filter button {
+            padding: 0.4rem 1rem;
+            border: none;
+            background: none;
+            color: var(--clr-text-muted);
+            font-size: 0.82rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+        .tab-filter button.active {
+            background: var(--clr-card);
+            color: var(--clr-accent);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        /* ── Manager badge ── */
+        .manager-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: linear-gradient(135deg, var(--clr-accent-2), #5a3dc8);
+            color: #fff;
+            border-radius: 100px;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        /* ── Progress bars ── */
+        .cap-bar {
+            margin-top: 0.5rem;
+        }
+        .cap-bar__track {
+            height: 8px;
+            background: var(--clr-border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        .cap-bar__fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--clr-primary), var(--clr-accent));
+            border-radius: 4px;
+            transition: width 0.6s ease;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .stat-grid, .config-grid, .report-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .stat-grid { grid-template-columns: repeat(2, 1fr); }
+            .config-grid, .report-grid { grid-template-columns: 1fr; }
+            .stat-card { padding: 1rem 1.1rem; }
+            .stat-card__value { font-size: 1.5rem; }
+            .stat-card__icon  { font-size: 1.4rem; margin-bottom: 0.5rem; }
+            /* section display control for mobile */
+            section[id^="section-"] { display: none; }
+            section[id^="section-"].active { display: block !important; }
+        }
+    </style>
+</head>
+<body>
+<div class="dashboard-layout">
+
+    <!-- ══ SIDEBAR ══ -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <a href="index.html" class="brand">
+                <div class="brand-icon">🏦</div>
+                <span>Matir Bank</span>
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <button class="nav-item active" id="nav-overview"  onclick="showSection('overview')">
+                <span class="nav-icon">📊</span> Overview
+            </button>
+            <button class="nav-item" id="nav-reports"   onclick="showSection('reports')">
+                <span class="nav-icon">📈</span> Reports
+            </button>
+            <button class="nav-item" id="nav-accounts"   onclick="showSection('accounts')">
+                <span class="nav-icon">🏦</span> Accounts
+            </button>
+            <button class="nav-item" id="nav-admins"    onclick="showSection('admins')">
+                <span class="nav-icon">👔</span> Admins
+            </button>
+            <button class="nav-item" id="nav-loans"     onclick="showSection('loans')">
+                <span class="nav-icon">🏛️</span> Loans
+            </button>
+            <button class="nav-item" id="nav-config"    onclick="showSection('config')">
+                <span class="nav-icon">⚙️</span> System Config
+            </button>
+        </nav>
+        <div class="sidebar-footer">
+            <div style="margin-bottom:0.5rem;">
+                <span class="manager-badge">⭐ Manager</span>
+            </div>
+            <div style="font-size:0.8rem;color:var(--clr-text-muted);margin-bottom:0.75rem;" id="sidebarUser">—</div>
+            <button class="btn btn--ghost btn--full btn--sm" onclick="logout()">Sign Out</button>
+        </div>
+    </aside>
+
+    <!-- ══ MOBILE HEADER ══ -->
+    <header class="app-header">
+        <div class="app-header__left">
+            <div class="app-header__avatar" style="background:linear-gradient(135deg,#7c5cfc,#5a3dc8);">👑</div>
+            <div>
+                <div class="app-header__greeting">Manager Panel</div>
+                <div class="app-header__name" id="headerName">Matir Bank</div>
+            </div>
+        </div>
+        <div class="app-header__actions">
+            <button class="app-header__btn" onclick="logout()" title="Sign Out">🚪</button>
+        </div>
+    </header>
+
+    <!-- ══ MAIN CONTENT ══ -->
+    <main class="main-content">
+
+        <!-- ═══ OVERVIEW SECTION ═══ -->
+        <section id="section-overview">
+            <div class="page-header fade-in">
+                <h1 class="page-title">Manager Dashboard</h1>
+                <p class="page-subtitle">System-wide control and reporting</p>
+            </div>
+
+            <!-- Stats -->
+            <div class="stat-grid fade-in">
+                <div class="stat-card stat-card--blue">
+                    <div class="stat-card__icon">👥</div>
+                    <div class="stat-card__value" id="stat-customers">—</div>
+                    <div class="stat-card__label">Total Customers</div>
+                    <div class="stat-card__sub" id="stat-customers-cap">of — max</div>
+                </div>
+                <div class="stat-card stat-card--green">
+                    <div class="stat-card__icon">💰</div>
+                    <div class="stat-card__value" id="stat-total-balance">—</div>
+                    <div class="stat-card__label">Total Balance</div>
+                    <div class="stat-card__sub">Across all accounts</div>
+                </div>
+                <div class="stat-card stat-card--yellow">
+                    <div class="stat-card__icon">🏛️</div>
+                    <div class="stat-card__value" id="stat-loans">—</div>
+                    <div class="stat-card__label">Total Loans</div>
+                    <div class="stat-card__sub" id="stat-loans-pending">— pending</div>
+                </div>
+                <div class="stat-card stat-card--purple">
+                    <div class="stat-card__icon">👔</div>
+                    <div class="stat-card__value" id="stat-admins">—</div>
+                    <div class="stat-card__label">Admin Staff</div>
+                    <div class="stat-card__sub">Active employees</div>
+                </div>
+            </div>
+
+            <!-- Customer capacity bar -->
+            <div class="card fade-in" style="margin-bottom:1.5rem;">
+                <div class="card-header">
+                    <span class="card-title">👥 Customer Capacity</span>
+                    <button class="btn btn--ghost btn--sm" onclick="showSection('config')">⚙️ Configure</button>
+                </div>
+                <div class="cap-bar">
+                    <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--clr-text-muted);">
+                        <span id="cap-label">Loading…</span>
+                        <span id="cap-percent">—</span>
+                    </div>
+                    <div class="cap-bar__track">
+                        <div class="cap-bar__fill" id="cap-fill" style="width:0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Pending Loans -->
+            <div class="card fade-in">
+                <div class="card-header">
+                    <span class="card-title">⏳ Pending Loan Requests</span>
+                    <button class="btn btn--ghost btn--sm" onclick="showSection('loans')">View All</button>
+                </div>
+                <div id="overviewPendingLoans"><div class="spinner"></div></div>
+            </div>
+        </section>
+
+        <!-- ═══ REPORTS SECTION ═══ -->
+        <section id="section-reports" style="display:none;">
+            <div class="page-header fade-in">
+                <h1 class="page-title">System Reports</h1>
+                <p class="page-subtitle">Financial overview and analytics</p>
+            </div>
+            <div class="report-grid fade-in" id="reportsGrid">
+                <div class="spinner"></div>
+            </div>
+        </section>
+
+        <!-- ═══ ADMINS SECTION ═══ -->
+        <section id="section-admins" style="display:none;">
+            <div class="page-header fade-in">
+                <h1 class="page-title">Admin Staff</h1>
+                <p class="page-subtitle">Manage bank admin accounts</p>
+            </div>
+
+            <!-- Create Admin Form -->
+            <div class="card fade-in" style="margin-bottom:1.5rem;">
+                <div class="card-header"><span class="card-title">➕ Create Admin Account</span></div>
+                <form id="createAdminForm" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:1rem;align-items:end;">
+                    <div class="form-group" style="margin:0;">
+                        <label class="form-label">Full Name</label>
+                        <input class="form-input" type="text" id="adminName" placeholder="Jane Doe" required>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label class="form-label">Email</label>
+                        <input class="form-input" type="email" id="adminEmail" placeholder="staff@matirbank.com" required>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label class="form-label">Password</label>
+                        <input class="form-input" type="password" id="adminPassword" placeholder="Min 8 characters" required minlength="8">
+                    </div>
+                    <button class="btn btn--accent" type="submit">Create</button>
+                </form>
+            </div>
+
+            <!-- Admin List -->
+            <div class="card fade-in">
+                <div class="card-header"><span class="card-title">👔 All Admins</span></div>
+                <div id="adminsContainer"><div class="spinner"></div></div>
+            </div>
+        </section>
+
+        <!-- ═══ ACCOUNTS SECTION ═══ -->
+        <section id="section-accounts" style="display:none;">
+            <div class="page-header fade-in">
+                <h1 class="page-title">Customer Accounts</h1>
+                <p class="page-subtitle">Approve, freeze, or close customer bank accounts</p>
+            </div>
+            <div class="card fade-in">
+                <div class="action-row" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.2rem;flex-wrap:wrap;">
+                    <div class="tab-filter" id="accStatusFilter">
+                        <button class="active" onclick="filterAccounts('ALL', this)">All</button>
+                        <button onclick="filterAccounts('PENDING', this)">Pending Approval</button>
+                        <button onclick="filterAccounts('ACTIVE', this)">Active</button>
+                        <button onclick="filterAccounts('FROZEN', this)">Frozen</button>
+                        <button onclick="filterAccounts('CLOSED', this)">Closed</button>
+                    </div>
+                </div>
+                <div id="accountsContainer"><div class="spinner"></div></div>
+            </div>
+        </section>
+
+        <!-- ═══ LOANS SECTION ═══ -->
+        <section id="section-loans" style="display:none;">
+            <div class="page-header fade-in">
+                <h1 class="page-title">Loan Management</h1>
+                <p class="page-subtitle">Manager-level loan review and approval</p>
+            </div>
+            <div class="card fade-in">
+                <div class="action-row" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.2rem;flex-wrap:wrap;">
+                    <div class="tab-filter" id="loanStatusFilter">
+                        <button class="active" onclick="filterLoans('ALL', this)">All</button>
+                        <button onclick="filterLoans('PENDING', this)">Pending</button>
+                        <button onclick="filterLoans('APPROVED', this)">Approved</button>
+                        <button onclick="filterLoans('REJECTED', this)">Rejected</button>
+                        <button onclick="filterLoans('PAID', this)">Paid</button>
+                    </div>
+                </div>
+                <div id="loansContainer"><div class="spinner"></div></div>
+            </div>
+        </section>
+
+        <!-- ═══ SYSTEM CONFIG SECTION ═══ -->
+        <section id="section-config" style="display:none;">
+            <div class="page-header fade-in">
+                <h1 class="page-title">System Configuration</h1>
+                <p class="page-subtitle">Manage interest rates, customer limits and other system settings</p>
+            </div>
+            <div class="config-grid fade-in">
+
+                <!-- Max Customers -->
+                <div class="config-card">
+                    <div class="config-card__label">🏦 Max Customer Limit</div>
+                    <div class="config-card__current" id="cfg-max-customers">—</div>
+                    <p style="font-size:0.82rem;color:var(--clr-text-muted);margin-bottom:1rem;">
+                        New signups are rejected once this limit is reached.
+                    </p>
+                    <div class="config-edit-row">
+                        <input type="number" id="input-max-customers" placeholder="e.g. 1000" min="1">
+                        <button class="btn btn--primary btn--sm" onclick="saveConfig('MAX_CUSTOMERS', 'input-max-customers', 'cfg-max-customers', '')">Save</button>
+                    </div>
+                </div>
+
+                <!-- Savings Interest Rate -->
+                <div class="config-card">
+                    <div class="config-card__label">💹 Savings Interest Rate</div>
+                    <div class="config-card__current" id="cfg-savings-rate">—</div>
+                    <p style="font-size:0.82rem;color:var(--clr-text-muted);margin-bottom:1rem;">
+                        Annual compound interest rate applied to savings accounts.
+                    </p>
+                    <div class="config-edit-row">
+                        <input type="number" id="input-savings-rate" placeholder="e.g. 5.5" step="0.1" min="0" max="50">
+                        <button class="btn btn--primary btn--sm" onclick="saveConfig('SAVINGS_INTEREST_RATE', 'input-savings-rate', 'cfg-savings-rate', '%')">Save</button>
+                    </div>
+                </div>
+
+                <!-- Loan Interest Rate -->
+                <div class="config-card">
+                    <div class="config-card__label">🏛️ Default Loan Interest Rate</div>
+                    <div class="config-card__current" id="cfg-loan-rate">—</div>
+                    <p style="font-size:0.82rem;color:var(--clr-text-muted);margin-bottom:1rem;">
+                        Annual rate used when a new loan is applied. Affects EMI calculation.
+                    </p>
+                    <div class="config-edit-row">
+                        <input type="number" id="input-loan-rate" placeholder="e.g. 10.0" step="0.1" min="0" max="50">
+                        <button class="btn btn--primary btn--sm" onclick="saveConfig('LOAN_INTEREST_RATE', 'input-loan-rate', 'cfg-loan-rate', '%')">Save</button>
+                    </div>
+                </div>
+
+                <!-- Min Balance -->
+                <div class="config-card">
+                    <div class="config-card__label">💵 Minimum Account Balance</div>
+                    <div class="config-card__current" id="cfg-min-balance">—</div>
+                    <p style="font-size:0.82rem;color:var(--clr-text-muted);margin-bottom:1rem;">
+                        Minimum balance required to keep an account active (in BDT).
+                    </p>
+                    <div class="config-edit-row">
+                        <input type="number" id="input-min-balance" placeholder="e.g. 500" min="0">
+                        <button class="btn btn--primary btn--sm" onclick="saveConfig('MIN_BALANCE', 'input-min-balance', 'cfg-min-balance', ' ৳')">Save</button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- ══ CONFIRM MODAL ══ -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal" style="max-width:380px;">
+        <div class="modal-header">
+            <h3 id="confirmTitle">Confirm Action</h3>
+            <button class="modal-close" onclick="closeModal('confirmModal')">×</button>
+        </div>
+        <p id="confirmMsg" style="color:var(--clr-text-muted);margin-bottom:1.5rem;font-size:0.95rem;"></p>
+        <div style="display:flex;gap:0.75rem;">
+            <button class="btn btn--ghost btn--full" onclick="closeModal('confirmModal')">Cancel</button>
+            <button class="btn btn--primary btn--full" id="confirmBtn">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/config.js"></script>
+<script>
+    requireAuth(["MANAGER"]);
+
+    // ── Data stores ──
+    let allAdmins = [];
+    let allLoans  = [];
+    let currentLoanFilter = "ALL";
+    let systemConfig = {};
+
+    // ── Init ──
+    async function init() {
+        try {
+            const me = await apiCall(CONFIG.API.ADMIN_ME);
+            document.getElementById("sidebarUser").textContent = me.name || me.email || "Manager";
+            await Promise.all([loadStats(), loadPendingLoansOverview()]);
+        } catch (err) {
+            showToast("Failed to load dashboard", "error");
+        }
+    }
+
+    // ── Stats ──
+    async function loadStats() {
+        try {
+            const [customers, accounts, loans, admins, config] = await Promise.all([
+                apiCall(CONFIG.API.ADMIN_CUSTOMERS),
+                apiCall(CONFIG.API.ACCOUNTS_ALL),
+                apiCall(CONFIG.API.LOANS_ALL),
+                apiCall(CONFIG.API.ADMIN_ADMINS),
+                apiCall(CONFIG.API.ADMIN_CONFIG),
+            ]);
+
+            // Backend returns List<SystemConfig>; convert to key→value map
+            systemConfig = {};
+            if (Array.isArray(config)) {
+                config.forEach(c => { systemConfig[c.configKey] = c.configValue; });
+            } else {
+                Object.assign(systemConfig, config || {});
+            }
+
+            // Customer count & cap
+            const maxCust = systemConfig["MAX_CUSTOMERS"] || "—";
+            document.getElementById("stat-customers").textContent = customers.length;
+            document.getElementById("stat-customers-cap").textContent = `of ${maxCust} max`;
+
+            // Capacity bar
+            if (maxCust !== "—" && !isNaN(maxCust)) {
+                const pct = Math.min(100, (customers.length / parseInt(maxCust)) * 100);
+                document.getElementById("cap-label").textContent = `${customers.length} customers registered`;
+                document.getElementById("cap-percent").textContent = `${pct.toFixed(1)}%`;
+                document.getElementById("cap-fill").style.width = pct + "%";
+            } else {
+                document.getElementById("cap-label").textContent = `${customers.length} customers registered`;
+                document.getElementById("cap-percent").textContent = "No limit set";
+            }
+
+            // Total balance
+            const totalBal = accounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0);
+            document.getElementById("stat-total-balance").textContent = "৳ " + Math.round(totalBal).toLocaleString("en-IN");
+
+            // Loans
+            const pendingLoans = loans.filter(l => l.status === "PENDING").length;
+            document.getElementById("stat-loans").textContent = loans.length;
+            document.getElementById("stat-loans-pending").textContent = `${pendingLoans} pending`;
+
+            // Admins
+            document.getElementById("stat-admins").textContent = admins.length;
+
+        } catch(e) { /* stats best-effort */ }
+    }
+
+    // ── SECTION NAVIGATION ──
+    const SECTIONS = ["overview","reports","accounts","admins","loans","config"];
+    function showSection(name) {
+        SECTIONS.forEach(s => {
+            const sec = document.getElementById(`section-${s}`);
+            if (sec) {
+                sec.style.display = s === name ? "block" : "none";
+                sec.classList.toggle("active", s === name);
+            }
+            const dn = document.getElementById(`nav-${s}`);
+            if (dn) dn.classList.toggle("active", s === name);
+            
+            const mn = document.getElementById(`mnav-${s}`);
+            if (mn) mn.classList.toggle("active", s === name);
+        });
+        if (name === "reports")  loadReports();
+        if (name === "accounts") loadAccounts();
+        if (name === "admins")   loadAdmins();
+        if (name === "loans")    loadLoans();
+        if (name === "config")   loadConfig();
+    }
+
+    // ════════════════════════════════
+    //  OVERVIEW — PENDING LOANS
+    // ════════════════════════════════
+    async function loadPendingLoansOverview() {
+        const container = document.getElementById("overviewPendingLoans");
+        try {
+            const loans = await apiCall(CONFIG.API.LOANS_PENDING);
+            if (!loans.length) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state__icon">✅</div><div class="empty-state__text">No pending loan requests</div></div>`;
+                return;
+            }
+            container.innerHTML = renderLoanTable(loans.slice(0, 5));
+        } catch(e) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__text">${e.message}</div></div>`;
+        }
+    }
+
+    // ════════════════════════════════
+    //  REPORTS
+    // ════════════════════════════════
+    async function loadReports() {
+        const grid = document.getElementById("reportsGrid");
+        grid.innerHTML = `<div class="spinner"></div>`;
+        try {
+            const [customers, accounts, loans, txAll] = await Promise.all([
+                apiCall(CONFIG.API.ADMIN_CUSTOMERS),
+                apiCall(CONFIG.API.ACCOUNTS_ALL),
+                apiCall(CONFIG.API.LOANS_ALL),
+                apiCall(CONFIG.API.TX_ALL),
+            ]);
+
+            const activeAcc   = accounts.filter(a =>  a.isActive).length;
+            const closedAcc   = accounts.filter(a => !a.isActive).length;
+            const totalBal    = accounts.reduce((s, a) => s + (parseFloat(a.balance) || 0), 0);
+            const deposits    = txAll.filter(t => t.type === "DEPOSIT");
+            const withdrawals = txAll.filter(t => t.type === "WITHDRAW");
+            const transfers   = txAll.filter(t => t.type === "TRANSFER");
+            const totalDeposit = deposits.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+            const totalWithdraw = withdrawals.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+            const approvedLoans = loans.filter(l => l.status === "APPROVED");
+            const totalLoanAmt  = approvedLoans.reduce((s, l) => s + (parseFloat(l.principal) || 0), 0);
+
+            grid.innerHTML = `
+                <div class="report-card">
+                    <div class="report-card__title">📋 Customer Summary</div>
+                    <div class="report-row"><span class="report-row__key">Total Customers</span><span class="report-row__value">${customers.length}</span></div>
+                    <div class="report-row"><span class="report-row__key">Active Accounts</span><span class="report-row__value" style="color:var(--clr-success);">${activeAcc}</span></div>
+                    <div class="report-row"><span class="report-row__key">Closed Accounts</span><span class="report-row__value" style="color:var(--clr-danger);">${closedAcc}</span></div>
+                    <div class="report-row"><span class="report-row__key">Savings Accounts</span><span class="report-row__value">${accounts.filter(a=>a.accountType==="SAVINGS").length}</span></div>
+                    <div class="report-row"><span class="report-row__key">Current Accounts</span><span class="report-row__value">${accounts.filter(a=>a.accountType==="CURRENT").length}</span></div>
+                </div>
+
+                <div class="report-card">
+                    <div class="report-card__title">💰 Balance Overview</div>
+                    <div class="report-row"><span class="report-row__key">Total Bank Balance</span><span class="report-row__value" style="color:var(--clr-accent);">${formatBDT(totalBal)}</span></div>
+                    <div class="report-row"><span class="report-row__key">Avg Balance / Account</span><span class="report-row__value">${accounts.length ? formatBDT(totalBal / accounts.length) : "—"}</span></div>
+                    <div class="report-row"><span class="report-row__key">Total Deposited</span><span class="report-row__value" style="color:var(--clr-success);">${formatBDT(totalDeposit)}</span></div>
+                    <div class="report-row"><span class="report-row__key">Total Withdrawn</span><span class="report-row__value" style="color:var(--clr-danger);">${formatBDT(totalWithdraw)}</span></div>
+                    <div class="report-row"><span class="report-row__key">Net Flow</span><span class="report-row__value">${formatBDT(totalDeposit - totalWithdraw)}</span></div>
+                </div>
+
+                <div class="report-card">
+                    <div class="report-card__title">💸 Transaction Summary</div>
+                    <div class="report-row"><span class="report-row__key">Total Transactions</span><span class="report-row__value">${txAll.length}</span></div>
+                    <div class="report-row"><span class="report-row__key">Deposits</span><span class="report-row__value" style="color:var(--clr-success);">${deposits.length}</span></div>
+                    <div class="report-row"><span class="report-row__key">Withdrawals</span><span class="report-row__value" style="color:var(--clr-danger);">${withdrawals.length}</span></div>
+                    <div class="report-row"><span class="report-row__key">Transfers</span><span class="report-row__value" style="color:var(--clr-primary);">${transfers.length}</span></div>
+                </div>
+
+                <div class="report-card">
+                    <div class="report-card__title">🏛️ Loan Summary</div>
+                    <div class="report-row"><span class="report-row__key">Total Applications</span><span class="report-row__value">${loans.length}</span></div>
+                    <div class="report-row"><span class="report-row__key">Pending</span><span class="report-row__value" style="color:var(--clr-warning);">${loans.filter(l=>l.status==="PENDING").length}</span></div>
+                    <div class="report-row"><span class="report-row__key">Approved</span><span class="report-row__value" style="color:var(--clr-success);">${approvedLoans.length}</span></div>
+                    <div class="report-row"><span class="report-row__key">Rejected</span><span class="report-row__value" style="color:var(--clr-danger);">${loans.filter(l=>l.status==="REJECTED").length}</span></div>
+                    <div class="report-row"><span class="report-row__key">Total Approved Amount</span><span class="report-row__value" style="color:var(--clr-accent);">${formatBDT(totalLoanAmt)}</span></div>
+                </div>`;
+        } catch(e) {
+            grid.innerHTML = `<div class="empty-state"><div class="empty-state__text">${e.message}</div></div>`;
+        }
+    }
+
+    // ════════════════════════════════
+    //  ADMINS
+    // ════════════════════════════════
+    async function loadAdmins() {
+        const container = document.getElementById("adminsContainer");
+        container.innerHTML = `<div class="spinner"></div>`;
+        try {
+            allAdmins = await apiCall(CONFIG.API.ADMIN_ADMINS);
+            renderAdmins(allAdmins);
+        } catch(e) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__text">${e.message}</div></div>`;
+        }
+    }
+
+    function renderAdmins(list) {
+        const container = document.getElementById("adminsContainer");
+        if (!list.length) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__icon">👔</div><div class="empty-state__text">No admins yet</div></div>`;
+            return;
+        }
+        container.innerHTML = `
+            <div class="table-container">
+                <table class="table">
+                    <thead><tr>
+                        <th>ID</th><th>Name</th><th>Email</th><th>Joined</th><th>Actions</th>
+                    </tr></thead>
+                    <tbody>${list.map(a => `
+                        <tr>
+                            <td style="color:var(--clr-text-dim);font-family:monospace;">#${a.id}</td>
+                            <td style="font-weight:600;">${a.name}</td>
+                            <td style="color:var(--clr-text-muted);">${a.email}</td>
+                            <td style="color:var(--clr-text-muted);">${formatDate(a.createdAt)}</td>
+                            <td>
+                                <button class="btn-icon btn-icon--remove" title="Remove Admin" onclick="removeAdmin(${a.id}, '${a.name}')">🗑️</button>
+                            </td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    // Create Admin Form — calls POST /api/admin/admins (correct backend endpoint)
+    document.getElementById("createAdminForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name     = document.getElementById("adminName").value;
+        const email    = document.getElementById("adminEmail").value;
+        const password = document.getElementById("adminPassword").value;
+        try {
+            await apiCall(CONFIG.API.ADMIN_ADMINS, "POST", { name, email, password });
+            showToast(`Admin account created for ${name}!`, "success");
+            document.getElementById("createAdminForm").reset();
+            loadAdmins();
+            loadStats();
+        } catch(err) { showToast(err.message, "error"); }
+    });
+
+    // ════════════════════════════════
+    //  ACCOUNTS (Manager view)
+    // ════════════════════════════════
+    let allManagerAccounts = [];
+    let currentMgrAccFilter = "ALL";
+
+    async function loadAccounts() {
+        const container = document.getElementById("accountsContainer");
+        container.innerHTML = `<div class="spinner"></div>`;
+        try {
+            allManagerAccounts = await apiCall(CONFIG.API.ACCOUNTS_ALL);
+            renderAccounts(allManagerAccounts, currentMgrAccFilter);
+        } catch(e) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__text">${e.message}</div></div>`;
+        }
+    }
+
+    function renderAccounts(list, filter) {
+        let filtered = list;
+        if (filter === "PENDING") filtered = list.filter(a => !a.isApproved && a.isActive);
+        else if (filter === "ACTIVE") filtered = list.filter(a => a.isApproved && a.isActive && !a.isFrozen);
+        else if (filter === "FROZEN") filtered = list.filter(a => a.isFrozen);
+        else if (filter === "CLOSED") filtered = list.filter(a => !a.isActive);
+
+        const container = document.getElementById("accountsContainer");
+        if (!filtered.length) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__icon">🏦</div><div class="empty-state__text">No accounts found</div></div>`;
+            return;
+        }
+        container.innerHTML = `
+            <div class="table-container">
+                <table class="table">
+                    <thead><tr>
+                        <th>Account #</th><th>Type</th><th>Balance</th><th>Owner (ID)</th><th>Status</th><th>Actions</th>
+                    </tr></thead>
+                    <tbody>${filtered.map(a => `
+                        <tr>
+                            <td style="font-family:monospace;font-size:0.85rem;">${formatAccNum(a.accountNumber)}</td>
+                            <td><span class="badge badge--primary">${a.accountType}</span></td>
+                            <td style="font-weight:700;color:var(--clr-accent);">${formatBDT(a.balance)}</td>
+                            <td style="color:var(--clr-text-muted);">User #${a.userId ?? "—"}</td>
+                            <td>
+                                <span class="badge ${a.isActive ? 'badge--success' : 'badge--danger'}" style="margin-right:4px;">${a.isActive ? 'Active' : 'Closed'}</span>
+                                <span class="badge ${a.isApproved ? 'badge--success' : 'badge--warning'}" style="margin-right:4px;">${a.isApproved ? 'Approved' : 'Pending'}</span>
+                                ${a.isFrozen ? `<span class="badge badge--danger">Frozen</span>` : ''}
+                            </td>
+                            <td style="display:flex;gap:6px;">
+                                ${!a.isApproved && a.isActive
+                                    ? `<button class="btn-icon btn-icon--approve" title="Approve Account" onclick="approveAccount('${a.accountNumber}')">✅</button>`
+                                    : ''
+                                }
+                                ${a.isActive
+                                    ? `<button class="btn-icon btn-icon--remove" title="Close Account" onclick="closeAccount('${a.accountNumber}')">🔒</button>`
+                                    : `<button class="btn-icon" style="background:rgba(46,213,115,0.1);color:var(--clr-success);" title="Reopen Account" onclick="approveAccount('${a.accountNumber}')">🔓</button>`
+                                }
+                                ${a.isActive && a.isApproved
+                                    ? (a.isFrozen
+                                        ? `<button class="btn-icon" style="background:rgba(46,213,115,0.1);color:var(--clr-success);" title="Unfreeze" onclick="unfreezeAccount('${a.accountNumber}')">❄️</button>`
+                                        : `<button class="btn-icon btn-icon--remove" title="Freeze" onclick="freezeAccount('${a.accountNumber}')">🚨</button>`
+                                      )
+                                    : ''
+                                }
+                            </td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    function filterAccounts(filter, btn) {
+        currentMgrAccFilter = filter;
+        document.querySelectorAll("#accStatusFilter button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderAccounts(allManagerAccounts, filter);
+    }
+
+    function approveAccount(accountNumber) {
+        showConfirm("Approve Account", `Approve account ${formatAccNum(accountNumber)}?`, async () => {
+            try {
+                await apiCall(CONFIG.API.ACCOUNTS_APPROVE, "POST", { accountNumber });
+                showToast("Account approved successfully!", "success");
+                loadAccounts();
+                loadStats();
+            } catch(e) { showToast(e.message, "error"); }
+        });
+    }
+
+    function closeAccount(accountNumber) {
+        showConfirm("Close Account", `Close account ${formatAccNum(accountNumber)}?`, async () => {
+            try {
+                await apiCall(CONFIG.API.ACCOUNTS_CLOSE, "POST", { accountNumber });
+                showToast("Account closed.", "info");
+                loadAccounts();
+            } catch(e) { showToast(e.message, "error"); }
+        });
+    }
+
+    function freezeAccount(accountNumber) {
+        showConfirm("Freeze Account", `Freeze account ${formatAccNum(accountNumber)} due to suspicious activity?`, async () => {
+            try {
+                await apiCall(CONFIG.API.ACCOUNTS_FREEZE, "POST", { accountNumber });
+                showToast("Account frozen.", "success");
+                loadAccounts();
+            } catch(e) { showToast(e.message, "error"); }
+        });
+    }
+
+    function unfreezeAccount(accountNumber) {
+        showConfirm("Unfreeze Account", `Unfreeze account ${formatAccNum(accountNumber)}?`, async () => {
+            try {
+                await apiCall(CONFIG.API.ACCOUNTS_UNFREEZE, "POST", { accountNumber });
+                showToast("Account unfrozen!", "success");
+                loadAccounts();
+            } catch(e) { showToast(e.message, "error"); }
+        });
+    }
+
+    function formatAccNum(n) {
+        if (!n) return "—";
+        return n.replace(/(\d{4})(\d{4})(\d{2})/, "$1 $2 $3");
+    }
+
+    function removeAdmin(id, name) {
+        showConfirm("Remove Admin", `Remove admin "${name}" (ID #${id})? They will lose admin access.`, async () => {
+            try {
+                await apiCall(`/api/admin/admins/${id}`, "DELETE");
+                showToast("Admin removed.", "info");
+                loadAdmins();
+                loadStats();
+            } catch(e) { showToast(e.message, "error"); }
+        });
+    }
+
+    // ════════════════════════════════
+    //  LOANS
+    // ════════════════════════════════
+    async function loadLoans() {
+        const container = document.getElementById("loansContainer");
+        container.innerHTML = `<div class="spinner"></div>`;
+        try {
+            allLoans = await apiCall(CONFIG.API.LOANS_ALL);
+            renderLoans(allLoans, currentLoanFilter);
+        } catch(e) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__text">${e.message}</div></div>`;
+        }
+    }
+
+    function renderLoans(list, filter) {
+        const filtered = filter === "ALL" ? list : list.filter(l => l.status === filter);
+        const container = document.getElementById("loansContainer");
+        if (!filtered.length) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__icon">🏛️</div><div class="empty-state__text">No loans found</div></div>`;
+            return;
+        }
+        container.innerHTML = renderLoanTable(filtered);
+    }
+
+    function renderLoanTable(loans) {
+        return `
+            <div class="table-container">
+                <table class="table">
+                    <thead><tr>
+                        <th>ID</th><th>Account ID</th><th>Principal</th><th>Rate</th>
+                        <th>Tenure</th><th>Monthly EMI</th><th>Status</th><th>Date</th><th>Actions</th>
+                    </tr></thead>
+                    <tbody>${loans.map(l => `
+                        <tr>
+                            <td style="color:var(--clr-text-dim);font-family:monospace;">#${l.id}</td>
+                            <td style="color:var(--clr-text-muted);">${l.accountId ?? l.account?.id ?? "—"}</td>
+                            <td style="font-weight:700;">${formatBDT(l.principal)}</td>
+                            <td>${l.interestRate}%</td>
+                            <td>${l.tenureMonths} mo</td>
+                            <td>${formatBDT(l.monthlyEmi)}</td>
+                            <td><span class="badge loan--${l.status}">${l.status}</span></td>
+                            <td style="color:var(--clr-text-muted);font-size:0.82rem;">${formatDate(l.createdAt)}</td>
+                            <td style="display:flex;gap:6px;">
+                                ${l.status === "PENDING" ? `
+                                    <button class="btn-icon btn-icon--approve" title="Approve" onclick="approveLoan(${l.id})">✅</button>
+                                    <button class="btn-icon btn-icon--reject"  title="Reject"  onclick="rejectLoan(${l.id})">❌</button>
+                                ` : `<span style="color:var(--clr-text-dim);font-size:0.78rem;">—</span>`}
+                            </td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    function filterLoans(filter, btn) {
+        currentLoanFilter = filter;
+        document.querySelectorAll("#loanStatusFilter button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderLoans(allLoans, filter);
+    }
+
+    // Helper classes for btn-icons in the loans table
+    const btnIconStyles = `
+        .btn-icon--approve { background: rgba(46,213,115,0.1); color: var(--clr-success); }
+        .btn-icon--reject  { background: rgba(255,71,87,0.1);  color: var(--clr-danger);  }
+    `;
+    const styleEl = document.createElement("style");
+    styleEl.textContent = btnIconStyles;
+    document.head.appendChild(styleEl);
+
+    async function approveLoan(id) {
+        showConfirm("Approve Loan", `Approve loan #${id}?`, async () => {
+            try {
+                await apiCall(CONFIG.API.LOAN_APPROVE(id), "POST");
+                showToast("Loan approved!", "success");
+                loadLoans();
+                loadPendingLoansOverview();
+                loadStats();
+            } catch(e) { showToast(e.message, "error"); }
+        });
+    }
+
+    async function rejectLoan(id) {
+        showConfirm("Reject Loan", `Reject loan #${id}? This cannot be undone.`, async () => {
+            try {
+                await apiCall(CONFIG.API.LOAN_REJECT(id), "POST");
+                showToast("Loan rejected.", "info");
+                loadLoans();
+                loadPendingLoansOverview();
+                loadStats();
+            } catch(e) { showToast(e.message, "error"); }
+        });
+    }
+
+    // ════════════════════════════════
+    //  SYSTEM CONFIG
+    // ════════════════════════════════
+    async function loadConfig() {
+        try {
+            // Backend returns List<SystemConfig>; convert to key→value map
+            const cfgList = await apiCall(CONFIG.API.ADMIN_CONFIG);
+            systemConfig = {};
+            if (Array.isArray(cfgList)) {
+                cfgList.forEach(c => { systemConfig[c.configKey] = c.configValue; });
+            } else {
+                // Fallback: if already a plain object
+                Object.assign(systemConfig, cfgList);
+            }
+            document.getElementById("cfg-max-customers").textContent = systemConfig["MAX_CUSTOMERS"] ?? "Not set";
+            document.getElementById("cfg-savings-rate").textContent  = (systemConfig["SAVINGS_INTEREST_RATE"] ?? "Not set") + (systemConfig["SAVINGS_INTEREST_RATE"] ? "%" : "");
+            document.getElementById("cfg-loan-rate").textContent     = (systemConfig["LOAN_INTEREST_RATE"]    ?? "Not set") + (systemConfig["LOAN_INTEREST_RATE"] ? "%" : "");
+            document.getElementById("cfg-min-balance").textContent   = systemConfig["MIN_BALANCE"] ? formatBDT(systemConfig["MIN_BALANCE"]) : "Not set";
+        } catch(e) {
+            showToast("Could not load config: " + e.message, "error");
+        }
+    }
+
+    async function saveConfig(key, inputId, displayId, suffix) {
+        const val = document.getElementById(inputId).value;
+        if (!val) { showToast("Please enter a value", "error"); return; }
+        try {
+            // Backend uses PUT /api/admin/config — not POST
+            await apiCall(CONFIG.API.ADMIN_CONFIG, "PUT", { key, value: val });
+            showToast("Config saved!", "success");
+            document.getElementById(displayId).textContent = val + suffix;
+            document.getElementById(inputId).value = "";
+            loadStats(); // refresh capacity bar
+            loadConfig(); // refresh displayed values
+        } catch(e) { showToast(e.message, "error"); }
+    }
+
+    // ════════════════════════════════
+    //  HELPERS
+    // ════════════════════════════════
+    function txBadge(type) {
+        return { DEPOSIT:"badge--success", WITHDRAW:"badge--danger", TRANSFER:"badge--primary" }[type] || "badge--muted";
+    }
+
+    // ── Confirm modal ──
+    let _confirmFn = null;
+    function showConfirm(title, msg, fn) {
+        document.getElementById("confirmTitle").textContent = title;
+        document.getElementById("confirmMsg").textContent   = msg;
+        _confirmFn = fn;
+        document.getElementById("confirmModal").classList.add("open");
+    }
+    document.getElementById("confirmBtn").addEventListener("click", async () => {
+        closeModal("confirmModal");
+        if (_confirmFn) await _confirmFn();
+        _confirmFn = null;
+    });
+
+    function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+    document.querySelectorAll(".modal-overlay").forEach(el => {
+        el.addEventListener("click", e => { if (e.target === el) el.classList.remove("open"); });
+    });
+
+    init();
+</script>
+
+<!-- ══════════ MOBILE BOTTOM NAV ══════════ -->
+<nav class="mobile-nav">
+    <div class="mobile-nav__inner">
+        <button class="mobile-nav__item active" id="mnav-overview" onclick="showSection('overview')">
+            <span class="mobile-nav__icon">📊</span>
+            <span class="mobile-nav__label">Overview</span>
+        </button>
+        <button class="mobile-nav__item" id="mnav-reports" onclick="showSection('reports')">
+            <span class="mobile-nav__icon">📈</span>
+            <span class="mobile-nav__label">Reports</span>
+        </button>
+        <button class="mobile-nav__item" id="mnav-accounts" onclick="showSection('accounts')">
+            <span class="mobile-nav__icon">🏦</span>
+            <span class="mobile-nav__label">Accounts</span>
+        </button>
+        <button class="mobile-nav__item" id="mnav-admins" onclick="showSection('admins')">
+            <span class="mobile-nav__icon">👔</span>
+            <span class="mobile-nav__label">Admins</span>
+        </button>
+        <button class="mobile-nav__item" id="mnav-loans" onclick="showSection('loans')">
+            <span class="mobile-nav__icon">🏛️</span>
+            <span class="mobile-nav__label">Loans</span>
+        </button>
+    </div>
+</nav>
+</body>
+</html>

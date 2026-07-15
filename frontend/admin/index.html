@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#080b12">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Admin Portal — Matir Bank</title>
+    <meta name="description" content="Secure portal for Matir Bank employees.">
+    <link rel="stylesheet" href="../css/style.css?v=3">
+    <style>
+        .auth-toggle { text-align: center; margin-top: 1.2rem; font-size: 0.88rem; color: var(--clr-text-muted); }
+        .auth-toggle a { color: var(--clr-primary); text-decoration: none; font-weight: 600; }
+        .auth-toggle a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="auth-page">
+        <!-- Background blobs -->
+        <div class="auth-bg-blob" style="width:600px;height:600px;background:var(--clr-primary);top:-200px;left:-200px;"></div>
+        <div class="auth-bg-blob" style="width:400px;height:400px;background:var(--clr-accent-2);bottom:-100px;right:-100px;"></div>
+
+        <!-- Auth Card -->
+        <div id="loginCard" class="auth-card fade-in">
+            <div style="text-align:center;margin-bottom:2rem;">
+                <a href="../index.html" class="brand" style="justify-content:center;margin-bottom:1rem;display:flex;">
+                    <div class="brand-icon">👔</div>
+                    <span>Matir Bank <span style="font-weight: 400; font-size: 1.1rem; color: var(--clr-primary); margin-left: 5px;">Admin</span></span>
+                </a>
+            </div>
+            <h2 class="auth-card-title">Employee Sign In</h2>
+            <p class="auth-card-subtitle">Access the administrator command center</p>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="loginEmail">Admin Email</label>
+                    <input class="form-input" type="email" id="loginEmail" placeholder="you@matirbank.com" required autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="loginPassword">Password</label>
+                    <input class="form-input" type="password" id="loginPassword" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+                <button class="btn btn--primary btn--full" type="submit" id="loginBtn">Authenticate</button>
+            </form>
+            <div class="auth-toggle">
+                Are you a Customer? <a href="../index.html">Customer Portal</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <script src="../js/config.js"></script>
+    <script>
+        // Redirect if already logged in as Admin or Manager
+        const token = getToken();
+        if (token) {
+            const role = getRole();
+            if (role === "ADMIN") {
+                window.location.href = "../dashboard-admin.html";
+            } else if (role === "MANAGER") {
+                window.location.href = "../dashboard-manager.html";
+            } else {
+                // If CUSTOMER, log out to allow Admin login
+                logoutSilently();
+            }
+        }
+
+        function logoutSilently() {
+            localStorage.removeItem("mb_token");
+            localStorage.removeItem("mb_role");
+            localStorage.removeItem("mb_userId");
+        }
+
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById("loginBtn");
+            btn.disabled = true; btn.textContent = "Authenticating…";
+            try {
+                const data = await apiCall(CONFIG.API.AUTH_LOGIN, "POST", {
+                    email: document.getElementById("loginEmail").value,
+                    password: document.getElementById("loginPassword").value,
+                });
+                
+                // Temporarily decode token to check role
+                const payload = JSON.parse(atob(data.token.split(".")[1]));
+                const role = payload.role;
+                
+                if (role !== "ADMIN" && role !== "MANAGER") {
+                    throw new Error("Access denied: Not an administrator account.");
+                }
+
+                saveAuth(data.token);
+                showToast("Welcome to Admin Dashboard!", "success");
+                setTimeout(() => {
+                    if (role === "ADMIN") window.location.href = "../dashboard-admin.html";
+                    else window.location.href = "../dashboard-manager.html";
+                }, 1000);
+            } catch (err) {
+                showToast(err.message || "Authentication failed", "error");
+                btn.disabled = false; btn.textContent = "Authenticate";
+            }
+        });
+    </script>
+</body>
+</html>

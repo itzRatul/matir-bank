@@ -1,0 +1,29 @@
+# Local Development Tools
+.tools/
+.m2/
+logs/
+
+# SQLite Database Files
+*.db
+space1-keyservice/*.db
+space2-backend/*.db
+
+# Compilation Outputs
+**/target/
+**/build/
+.gradle/
+bin/
+
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.classpath
+.project
+.settings/
+
+# OS specific files
+.DS_Store
+Thumbs.db

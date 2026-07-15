@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>My Dashboard — Matir Bank</title>
+    <meta name="description" content="Matir Bank customer dashboard: view balances, transfer funds, manage loans.">
+    <meta name="theme-color" content="#080b12">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="css/style.css?v=3">
+    <style>
+        /* ── Page-specific overrides ── */
+        .section-wrap { display: none; }
+        .section-wrap.active { display: block; }
+
+        /* Loan apply form — stacks on mobile */
+        .loan-form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.9rem;
+        }
+        @media (max-width: 768px) {
+            .loan-form-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Balance carousel dots */
+        .balance-dots {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin: 0.75rem 0 0;
+        }
+        .balance-dots__dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            transition: all 0.3s;
+        }
+        .balance-dots__dot.active {
+            width: 18px;
+            border-radius: 3px;
+            background: var(--clr-primary);
+        }
+
+        /* Recent tx section */
+        .tx-list { padding: 0 0.25rem; }
+
+        /* Loan EMI preview */
+        .emi-preview {
+            padding: 0.75rem 1rem;
+            background: rgba(0,212,170,0.08);
+            border: 1px solid rgba(0,212,170,0.2);
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            color: var(--clr-accent);
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+
+        /* Section fade */
+        @keyframes sectionIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .section-wrap.active { animation: sectionIn 0.28s ease forwards; }
+    </style>
+</head>
+<body>
+<div class="dashboard-layout">
+
+    <!-- ══════════ DESKTOP SIDEBAR ══════════ -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <a href="index.html" class="brand">
+                <div class="brand-icon">🏦</div>
+                <span>Matir Bank</span>
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <button class="nav-item active" id="nav-overview" onclick="showSection('overview')">
+                <span class="nav-icon">🏠</span> Overview
+            </button>
+            <button class="nav-item" id="nav-transactions" onclick="showSection('transactions')">
+                <span class="nav-icon">💸</span> Transactions
+            </button>
+            <button class="nav-item" id="nav-loans" onclick="showSection('loans')">
+                <span class="nav-icon">🏛️</span> Loans
+            </button>
+        </nav>
+        <div class="sidebar-footer">
+            <div style="font-size:0.8rem;color:var(--clr-text-muted);margin-bottom:0.75rem;" id="sidebarUser">—</div>
+            <button class="btn btn--ghost btn--full btn--sm" onclick="logout()">Sign Out</button>
+        </div>
+    </aside>
+
+    <!-- ══════════ MOBILE HEADER ══════════ -->
+    <header class="app-header">
+        <div class="app-header__left">
+            <div class="app-header__avatar" id="avatarInitial">?</div>
+            <div>
+                <div class="app-header__greeting">Good day 👋</div>
+                <div class="app-header__name" id="headerName">Loading…</div>
+            </div>
+        </div>
+        <div class="app-header__actions">
+            <button class="app-header__btn" onclick="init()" title="Refresh">🔄</button>
+            <button class="app-header__btn" onclick="logout()" title="Sign Out">🚪</button>
+        </div>
+    </header>
+
+    <!-- ══════════ MAIN CONTENT ══════════ -->
+    <main class="main-content">
+
+        <!-- ═══ OVERVIEW ═══ -->
+        <div id="section-overview" class="section-wrap active">
+
+            <!-- Page header (desktop only) -->
+            <div class="page-header fade-in" style="display:none;" id="desktopHeader">
+                <h1 class="page-title">Good day 👋 <span id="userName"></span></h1>
+                <p class="page-subtitle">Your financial snapshot</p>
+            </div>
+
+            <!-- Balance cards -->
+            <div id="accountCards" class="fade-in" style="display:flex;flex-direction:column;gap:1rem;margin-bottom:1.5rem;"></div>
+
+            <!-- Quick Actions -->
+            <div class="section-heading">⚡ Quick Actions</div>
+            <div class="quick-actions">
+                <div class="quick-action" onclick="openModal('depositModal')">
+                    <div class="quick-action__bubble quick-action__bubble--green">💰</div>
+                    <span class="quick-action__label">Deposit</span>
+                </div>
+                <div class="quick-action" onclick="openModal('withdrawModal')">
+                    <div class="quick-action__bubble quick-action__bubble--blue">🏧</div>
+                    <span class="quick-action__label">Withdraw</span>
+                </div>
+                <div class="quick-action" onclick="openModal('transferModal')">
+                    <div class="quick-action__bubble quick-action__bubble--purple">↔️</div>
+                    <span class="quick-action__label">Transfer</span>
+                </div>
+                <div class="quick-action" onclick="showSection('loans')">
+                    <div class="quick-action__bubble quick-action__bubble--orange">🏛️</div>
+                    <span class="quick-action__label">Loan</span>
+                </div>
+            </div>
+
+            <!-- Recent Transactions (mini) -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.85rem;margin-top:0.5rem;">
+                <div class="section-heading" style="margin-bottom:0;">📋 Recent Activity</div>
+                <button onclick="showSection('transactions')" style="font-size:0.78rem;color:var(--clr-primary);background:none;border:none;cursor:pointer;font-weight:600;padding:0.25rem;">View All →</button>
+            </div>
+            <div class="card fade-in" style="padding:0.5rem 1rem;">
+                <div class="tx-list" id="recentTxList">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ TRANSACTIONS ═══ -->
+        <div id="section-transactions" class="section-wrap">
+            <div class="page-header fade-in">
+                <h1 class="page-title">Transactions</h1>
+                <p class="page-subtitle">Your complete activity</p>
+            </div>
+            <div class="card fade-in">
+                <div class="card-header">
+                    <span class="card-title">📋 History</span>
+                    <select class="form-select" id="txAccountFilter" style="width:auto;min-height:36px;padding:0.4rem 0.7rem;font-size:0.82rem;" onchange="loadTransactions()"></select>
+                </div>
+                <div id="txTableContainer"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- ═══ LOANS ═══ -->
+        <div id="section-loans" class="section-wrap">
+            <div class="page-header fade-in">
+                <h1 class="page-title">Loans</h1>
+                <p class="page-subtitle">Apply and track loan applications</p>
+            </div>
+            <div class="card fade-in" style="margin-bottom:1rem;">
+                <div class="card-header"><span class="card-title">➕ Apply for a Loan</span></div>
+                <form id="loanApplyForm">
+                    <div class="loan-form-grid">
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label">Account</label>
+                            <select class="form-select" id="loanAccountSelect"></select>
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label">Amount (৳)</label>
+                            <input class="form-input" type="number" id="loanAmount" placeholder="50,000" min="1000">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label">Tenure (months)</label>
+                            <input class="form-input" type="number" id="loanTenure" placeholder="12" min="1">
+                        </div>
+                        <div style="display:flex;align-items:flex-end;">
+                            <button class="btn btn--primary btn--full" type="submit">Apply Now</button>
+                        </div>
+                    </div>
+                    <div id="loanEmiPreview"></div>
+                </form>
+            </div>
+            <div class="card fade-in">
+                <div class="card-header"><span class="card-title">📋 My Applications</span></div>
+                <div id="myLoansContainer"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- ══════════ MOBILE BOTTOM NAV ══════════ -->
+<nav class="mobile-nav">
+    <div class="mobile-nav__inner">
+        <button class="mobile-nav__item active" id="mnav-overview" onclick="showSection('overview')">
+            <span class="mobile-nav__icon">🏠</span>
+            <span class="mobile-nav__label">Home</span>
+        </button>
+        <button class="mobile-nav__item" id="mnav-transactions" onclick="showSection('transactions')">
+            <span class="mobile-nav__icon">💸</span>
+            <span class="mobile-nav__label">Activity</span>
+        </button>
+        <button class="mobile-nav__item" id="mnav-loans" onclick="showSection('loans')">
+            <span class="mobile-nav__icon">🏛️</span>
+            <span class="mobile-nav__label">Loans</span>
+        </button>
+    </div>
+</nav>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- ══════════ MODALS (Bottom Sheets) ══════════ -->
+
+<!-- Deposit -->
+<div class="modal-overlay" id="depositModal">
+    <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h3 style="font-size:1.1rem;">💰 Deposit Funds</h3>
+            <button class="modal-close" onclick="closeModal('depositModal')">✕</button>
+        </div>
+        <form id="depositForm">
+            <div class="form-group">
+                <label class="form-label">Account</label>
+                <select class="form-select" id="depositAccount"></select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Amount (৳)</label>
+                <input class="form-input" type="number" id="depositAmount" placeholder="1,000" min="1" required inputmode="numeric">
+            </div>
+            <button class="btn btn--accent btn--full" type="submit" style="margin-top:0.5rem;">Deposit Money</button>
+        </form>
+    </div>
+</div>
+
+<!-- Withdraw -->
+<div class="modal-overlay" id="withdrawModal">
+    <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h3 style="font-size:1.1rem;">🏧 Withdraw Funds</h3>
+            <button class="modal-close" onclick="closeModal('withdrawModal')">✕</button>
+        </div>
+        <form id="withdrawForm">
+            <div class="form-group">
+                <label class="form-label">Account</label>
+                <select class="form-select" id="withdrawAccount"></select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Amount (৳)</label>
+                <input class="form-input" type="number" id="withdrawAmount" placeholder="500" min="1" required inputmode="numeric">
+            </div>
+            <button class="btn btn--danger btn--full" type="submit" style="margin-top:0.5rem;">Withdraw Money</button>
+        </form>
+    </div>
+</div>
+
+<!-- Transfer -->
+<div class="modal-overlay" id="transferModal">
+    <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h3 style="font-size:1.1rem;">↔️ Send Money</h3>
+            <button class="modal-close" onclick="closeModal('transferModal')">✕</button>
+        </div>
+        <form id="transferForm">
+            <div class="form-group">
+                <label class="form-label">From Account</label>
+                <select class="form-select" id="transferFrom"></select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">To Account Number</label>
+                <input class="form-input" type="text" id="transferTo" placeholder="10XXXXXXXX" required inputmode="numeric">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Amount (৳)</label>
+                <input class="form-input" type="number" id="transferAmount" placeholder="500" min="1" required inputmode="numeric">
+            </div>
+            <button class="btn btn--primary btn--full" type="submit" style="margin-top:0.5rem;">Send Money</button>
+        </form>
+    </div>
+</div>
+
+<script src="js/config.js"></script>
+<script>
+    let myAccounts = [];
+    requireAuth(["CUSTOMER"]);
+
+    // ── Init ────────────────────────────────────────────────────────────
+    async function init() {
+        try {
+            const me = await apiCall(CONFIG.API.ADMIN_ME);
+            const name = me.name || "User";
+
+            // Desktop
+            document.getElementById("userName").textContent    = name;
+            document.getElementById("sidebarUser").textContent = me.email || "";
+            document.getElementById("desktopHeader").style.display = "block";
+
+            // Mobile header
+            document.getElementById("headerName").textContent = name;
+            document.getElementById("avatarInitial").textContent = name.charAt(0).toUpperCase();
+
+            myAccounts = await apiCall(CONFIG.API.ACCOUNTS_MINE);
+            renderAccountCards();
+            populateAccountSelects();
+            loadRecentTx();
+        } catch (err) {
+            console.error("Init error:", err);
+            document.getElementById("accountCards").innerHTML = `
+                <div style="background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.25);border-radius:14px;padding:1.25rem;color:#ff6b7a;">
+                    <div style="font-weight:700;margin-bottom:0.4rem;">⚠️ Failed to load data</div>
+                    <div style="font-size:0.82rem;opacity:0.8;">${err.message || "Network or CORS error."}</div>
+                    <button onclick="init()" style="margin-top:0.75rem;padding:0.5rem 1.1rem;background:#ff4757;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.82rem;">🔄 Retry</button>
+                </div>`;
+            showToast("Failed to load data", "error");
+        }
+    }
+
+    // ── Account Cards ───────────────────────────────────────────────────
+    function renderAccountCards() {
+        const container = document.getElementById("accountCards");
+        if (!myAccounts.length) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__icon">🏦</div><div class="empty-state__text">No accounts found</div></div>`;
+            return;
+        }
+        container.innerHTML = myAccounts.map(a => {
+            let statusBadge = '';
+            let alertBox = '';
+            
+            if (a.isFrozen) {
+                statusBadge = '<span class="badge badge--danger">Frozen</span>';
+                alertBox = `
+                    <div style="background:rgba(255,71,87,0.12); border:1px solid var(--clr-danger); border-radius:var(--radius-sm); padding:0.75rem; margin-top:1rem; font-size:0.8rem; color:#ff4d4d; line-height:1.4;">
+                        <strong>🚨 Account Frozen:</strong> Suspicious activity detected. Please contact <strong>support@matirbank.com</strong> or visit a physical branch immediately for verification.
+                    </div>`;
+            } else if (!a.isApproved) {
+                statusBadge = '<span class="badge badge--warning">Pending Approval</span>';
+                alertBox = `
+                    <div style="background:rgba(255,179,0,0.12); border:1px solid var(--clr-warning); border-radius:var(--radius-sm); padding:0.75rem; margin-top:1rem; font-size:0.8rem; color:#ffb300; line-height:1.4;">
+                        <strong>⏳ Pending Verification:</strong> This account is awaiting staff/manager approval. Features are temporarily limited.
+                    </div>`;
+            } else {
+                statusBadge = `<span class="badge ${a.isActive ? 'badge--success' : 'badge--danger'}">${a.isActive ? 'Active' : 'Closed'}</span>`;
+            }
+
+            return `
+            <div class="balance-card">
+                <div class="balance-card__chip"></div>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                    <div>
+                        <div class="balance-card__label">${a.accountType} Account</div>
+                        <div class="balance-card__amount">${formatBDT(a.balance)}</div>
+                        <div class="balance-card__account">${formatAccountNumber(a.accountNumber)}</div>
+                    </div>
+                    ${statusBadge}
+                </div>
+                <div class="balance-card__meta">
+                    <div>
+                        <span class="balance-card__meta-label">Account Type</span>
+                        <span class="balance-card__meta-value">${a.accountType}</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <span class="balance-card__meta-label">Opened</span>
+                        <span class="balance-card__meta-value">${formatDate(a.createdAt)}</span>
+                    </div>
+                </div>
+                ${alertBox}
+            </div>
+            `;
+        }).join("");
+    }
+
+    function formatAccountNumber(num) {
+        if (!num) return "";
+        return num.replace(/(\d{4})(\d{4})(\d{2})/, "$1 $2 $3");
+    }
+
+    function populateAccountSelects() {
+        const ids = ["depositAccount","withdrawAccount","transferFrom","txAccountFilter","loanAccountSelect"];
+        const active = myAccounts.filter(a => a.isActive);
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.innerHTML = active.map(a =>
+                `<option value="${a.accountNumber}">${a.accountType} – ${formatAccountNumber(a.accountNumber)}</option>`
+            ).join("");
+        });
+    }
+
+    // ── Recent Transactions (home preview) ──────────────────────────────
+    async function loadRecentTx() {
+        const container = document.getElementById("recentTxList");
+        const first = myAccounts.find(a => a.isActive);
+        if (!first) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__icon">📭</div><div class="empty-state__text">No accounts</div></div>`;
+            return;
+        }
+        try {
+            const txs = await apiCall(CONFIG.API.TX_HISTORY(first.accountNumber));
+            const recent = txs.slice(0, 5);
+            if (!recent.length) {
+                container.innerHTML = `<div class="empty-state" style="padding:1.5rem 0;"><div class="empty-state__icon">📭</div><div class="empty-state__text">No recent activity</div></div>`;
+                return;
+            }
+            container.innerHTML = recent.map(tx => {
+                const isCredit = tx.type === "DEPOSIT" || (tx.type === "TRANSFER" && tx.toAccount === first.accountNumber);
+                const iconMap  = { DEPOSIT: "💰", WITHDRAW: "🏧", TRANSFER: "↔️" };
+                const clsMap   = { DEPOSIT: "tx-icon--deposit", WITHDRAW: "tx-icon--withdraw", TRANSFER: "tx-icon--transfer" };
+                return `
+                <div class="tx-item">
+                    <div class="tx-icon ${clsMap[tx.type] || ''}">${iconMap[tx.type] || '💳'}</div>
+                    <div class="tx-info">
+                        <div class="tx-type">${tx.type.charAt(0)+tx.type.slice(1).toLowerCase()}${tx.description ? ' — ' + tx.description : ''}</div>
+                        <div class="tx-date">${formatDate(tx.timestamp)}</div>
+                    </div>
+                    <div class="tx-amount ${isCredit ? 'tx-amount--credit' : 'tx-amount--debit'}">
+                        ${isCredit ? '+' : '-'}${formatBDT(tx.amount)}
+                    </div>
+                </div>`;
+            }).join("");
+        } catch {
+            container.innerHTML = `<div class="empty-state" style="padding:1.5rem 0;"><div class="empty-state__text">Could not load activity</div></div>`;
+        }
+    }
+
+    // ── Section Navigation ───────────────────────────────────────────────
+    function showSection(name) {
+        ["overview","transactions","loans"].forEach(s => {
+            document.getElementById(`section-${s}`).classList.toggle("active", s === name);
+            // Desktop nav
+            const dn = document.getElementById(`nav-${s}`);
+            if (dn) dn.classList.toggle("active", s === name);
+            // Mobile nav
+            const mn = document.getElementById(`mnav-${s}`);
+            if (mn) mn.classList.toggle("active", s === name);
+        });
+        if (name === "transactions") loadTransactions();
+        if (name === "loans") loadMyLoans();
+    }
+
+    // ── Full Transactions ────────────────────────────────────────────────
+    async function loadTransactions() {
+        const container = document.getElementById("txTableContainer");
+        const acctNum = document.getElementById("txAccountFilter").value;
+        if (!acctNum) return;
+        container.innerHTML = `<div class="spinner"></div>`;
+        try {
+            const txs = await apiCall(CONFIG.API.TX_HISTORY(acctNum));
+            if (!txs.length) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state__icon">📭</div><div class="empty-state__text">No transactions yet</div></div>`;
+                return;
+            }
+            // Mobile: list view; Desktop: table
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                container.innerHTML = `<div class="tx-list">${txs.map(tx => {
+                    const isCredit = tx.type === "DEPOSIT" || (tx.type === "TRANSFER" && tx.toAccount === acctNum);
+                    const iconMap  = { DEPOSIT: "💰", WITHDRAW: "🏧", TRANSFER: "↔️" };
+                    const clsMap   = { DEPOSIT: "tx-icon--deposit", WITHDRAW: "tx-icon--withdraw", TRANSFER: "tx-icon--transfer" };
+                    return `
+                    <div class="tx-item">
+                        <div class="tx-icon ${clsMap[tx.type] || ''}">${iconMap[tx.type] || '💳'}</div>
+                        <div class="tx-info">
+                            <div class="tx-type">${tx.type.charAt(0)+tx.type.slice(1).toLowerCase()}</div>
+                            <div class="tx-date">${formatDate(tx.timestamp)}${tx.description ? ' · ' + tx.description : ''}</div>
+                        </div>
+                        <div class="tx-amount ${isCredit ? 'tx-amount--credit' : 'tx-amount--debit'}">
+                            ${isCredit ? '+' : '-'}${formatBDT(tx.amount)}
+                        </div>
+                    </div>`;
+                }).join("")}</div>`;
+            } else {
+                container.innerHTML = `
+                    <div class="table-container">
+                        <table class="table">
+                            <thead><tr>
+                                <th>Date</th><th>Type</th><th>Amount</th><th>Description</th>
+                            </tr></thead>
+                            <tbody>${txs.map(tx => `
+                                <tr>
+                                    <td>${formatDate(tx.timestamp)}</td>
+                                    <td><span class="badge ${txBadge(tx.type)}">${tx.type}</span></td>
+                                    <td class="tx--${tx.type}" style="font-weight:700;">${txSign(tx.type,acctNum,tx)}${formatBDT(tx.amount)}</td>
+                                    <td style="color:var(--clr-text-muted)">${tx.description || "—"}</td>
+                                </tr>`).join("")}
+                            </tbody>
+                        </table>
+                    </div>`;
+            }
+        } catch (err) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__text">${err.message}</div></div>`;
+        }
+    }
+
+    function txBadge(t) { return {DEPOSIT:"badge--success",WITHDRAW:"badge--danger",TRANSFER:"badge--primary"}[t]||"badge--muted"; }
+    function txSign(t, acct, tx) {
+        if (t === "DEPOSIT") return "+";
+        if (t === "WITHDRAW") return "-";
+        return tx.toAccount === acct ? "+" : "-";
+    }
+
+    // ── Loans ────────────────────────────────────────────────────────────
+    async function loadMyLoans() {
+        const container = document.getElementById("myLoansContainer");
+        container.innerHTML = `<div class="spinner"></div>`;
+        try {
+            const loans = await apiCall(CONFIG.API.LOANS_MINE);
+            if (!loans.length) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state__icon">🏛️</div><div class="empty-state__text">No loan applications yet</div></div>`;
+                return;
+            }
+            // Mobile cards
+            if (window.innerWidth <= 768) {
+                container.innerHTML = loans.map(l => `
+                    <div class="loan-card">
+                        <div class="loan-card__row">
+                            <span style="font-size:1rem;font-weight:800;">${formatBDT(l.principal)}</span>
+                            <span class="badge loan--${l.status}">${l.status}</span>
+                        </div>
+                        <div class="loan-card__row">
+                            <div><span class="loan-card__label">Interest</span><div class="loan-card__value">${l.interestRate}%</div></div>
+                            <div><span class="loan-card__label">Tenure</span><div class="loan-card__value">${l.tenureMonths} months</div></div>
+                            <div><span class="loan-card__label">Monthly EMI</span><div class="loan-card__value">${formatBDT(l.monthlyEmi)}</div></div>
+                        </div>
+                        <div style="font-size:0.75rem;color:var(--clr-text-muted);margin-top:0.35rem;">${formatDate(l.createdAt)}</div>
+                    </div>`).join("");
+            } else {
+                container.innerHTML = `
+                    <div class="table-container">
+                        <table class="table">
+                            <thead><tr><th>Principal</th><th>Rate</th><th>Tenure</th><th>EMI</th><th>Status</th><th>Date</th></tr></thead>
+                            <tbody>${loans.map(l => `
+                                <tr>
+                                    <td style="font-weight:700;">${formatBDT(l.principal)}</td>
+                                    <td>${l.interestRate}%</td>
+                                    <td>${l.tenureMonths} mo</td>
+                                    <td>${formatBDT(l.monthlyEmi)}</td>
+                                    <td><span class="badge loan--${l.status}">${l.status}</span></td>
+                                    <td style="color:var(--clr-text-muted)">${formatDate(l.createdAt)}</td>
+                                </tr>`).join("")}
+                            </tbody>
+                        </table>
+                    </div>`;
+            }
+        } catch (err) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__text">${err.message}</div></div>`;
+        }
+    }
+
+    // EMI live preview
+    document.getElementById("loanApplyForm").addEventListener("input", () => {
+        const p = parseFloat(document.getElementById("loanAmount").value);
+        const n = parseInt(document.getElementById("loanTenure").value);
+        const el = document.getElementById("loanEmiPreview");
+        if (p > 0 && n > 0) {
+            const r = 5 / 100 / 12;
+            const emi = (p * r * Math.pow(1+r,n)) / (Math.pow(1+r,n)-1);
+            el.innerHTML = `<div class="emi-preview">📊 Estimated EMI: <strong>${formatBDT(emi)}/month</strong> at 5% annual rate</div>`;
+        } else { el.innerHTML = ""; }
+    });
+
+    document.getElementById("loanApplyForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector("button[type=submit]");
+        btn.disabled = true; btn.textContent = "Submitting…";
+        try {
+            await apiCall(CONFIG.API.LOANS_APPLY, "POST", {
+                accountNumber: document.getElementById("loanAccountSelect").value,
+                amount: parseFloat(document.getElementById("loanAmount").value),
+                tenureMonths: parseInt(document.getElementById("loanTenure").value)
+            });
+            showToast("Loan application submitted! ✅", "success");
+            loadMyLoans();
+        } catch (err) { showToast(err.message, "error"); }
+        finally { btn.disabled = false; btn.textContent = "Apply Now"; }
+    });
+
+    // ── Modals ────────────────────────────────────────────────────────────
+    function openModal(id)  { document.getElementById(id).classList.add("open"); document.body.style.overflow="hidden"; }
+    function closeModal(id) { document.getElementById(id).classList.remove("open"); document.body.style.overflow=""; }
+    document.querySelectorAll(".modal-overlay").forEach(el => {
+        el.addEventListener("click", e => { if (e.target === el) { el.classList.remove("open"); document.body.style.overflow=""; } });
+    });
+
+    // ── Deposit ──────────────────────────────────────────────────────────
+    document.getElementById("depositForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector("button[type=submit]");
+        btn.disabled = true; btn.textContent = "Processing…";
+        try {
+            await apiCall(CONFIG.API.TX_DEPOSIT, "POST", {
+                accountNumber: document.getElementById("depositAccount").value,
+                amount: parseFloat(document.getElementById("depositAmount").value)
+            });
+            showToast("Deposit successful! 💰", "success");
+            closeModal("depositModal");
+            myAccounts = await apiCall(CONFIG.API.ACCOUNTS_MINE);
+            renderAccountCards(); loadRecentTx();
+        } catch (err) { showToast(err.message, "error"); }
+        finally { btn.disabled=false; btn.textContent="Deposit Money"; }
+    });
+
+    // ── Withdraw ─────────────────────────────────────────────────────────
+    document.getElementById("withdrawForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector("button[type=submit]");
+        btn.disabled = true; btn.textContent = "Processing…";
+        try {
+            await apiCall(CONFIG.API.TX_WITHDRAW, "POST", {
+                accountNumber: document.getElementById("withdrawAccount").value,
+                amount: parseFloat(document.getElementById("withdrawAmount").value)
+            });
+            showToast("Withdrawal successful! 🏧", "success");
+            closeModal("withdrawModal");
+            myAccounts = await apiCall(CONFIG.API.ACCOUNTS_MINE);
+            renderAccountCards(); loadRecentTx();
+        } catch (err) { showToast(err.message, "error"); }
+        finally { btn.disabled=false; btn.textContent="Withdraw Money"; }
+    });
+
+    // ── Transfer ──────────────────────────────────────────────────────────
+    document.getElementById("transferForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector("button[type=submit]");
+        btn.disabled = true; btn.textContent = "Sending…";
+        try {
+            await apiCall(CONFIG.API.TX_TRANSFER, "POST", {
+                fromAccount: document.getElementById("transferFrom").value,
+                toAccount: document.getElementById("transferTo").value,
+                amount: parseFloat(document.getElementById("transferAmount").value)
+            });
+            showToast("Money sent successfully! ✅", "success");
+            closeModal("transferModal");
+            myAccounts = await apiCall(CONFIG.API.ACCOUNTS_MINE);
+            renderAccountCards(); loadRecentTx();
+        } catch (err) { showToast(err.message, "error"); }
+        finally { btn.disabled=false; btn.textContent="Send Money"; }
+    });
+
+    init();
+</script>
+</body>
+</html>

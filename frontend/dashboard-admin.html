@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#080b12">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Admin Panel — Matir Bank</title>
+    <meta name="description" content="Matir Bank admin panel: manage customers, approve loans, open/close accounts, view all transactions.">
+    <link rel="stylesheet" href="css/style.css?v=3">
+    <style>
+        /* ── Admin-specific overrides ── */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: var(--clr-card);
+            border: 1px solid var(--clr-border);
+            border-radius: var(--radius-lg);
+            padding: 1.4rem 1.6rem;
+            position: relative;
+            overflow: hidden;
+            transition: transform var(--transition), box-shadow var(--transition);
+        }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-card); }
+        .stat-card::before {
+            content: "";
+            position: absolute;
+            top: 0; right: 0;
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            opacity: 0.08;
+        }
+        .stat-card--blue::before  { background: var(--clr-primary); }
+        .stat-card--green::before { background: var(--clr-success); }
+        .stat-card--yellow::before{ background: var(--clr-warning); }
+        .stat-card--purple::before{ background: var(--clr-accent-2); }
+        .stat-card__icon { font-size: 1.8rem; margin-bottom: 0.75rem; }
+        .stat-card__value {
+            font-family: var(--font-brand);
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--clr-text);
+            line-height: 1;
+            margin-bottom: 0.3rem;
+        }
+        .stat-card__label { font-size: 0.78rem; color: var(--clr-text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+        .stat-card__sub { font-size: 0.75rem; color: var(--clr-text-dim); margin-top: 0.25rem; }
+
+        /* ── Action row ── */
+        .action-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.2rem;
+            flex-wrap: wrap;
+        }
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--clr-surface-2);
+            border: 1px solid var(--clr-border);
+            border-radius: var(--radius-sm);
+            padding: 0.55rem 1rem;
+            flex: 1;
+            max-width: 320px;
+        }
+        .search-box input {
+            background: none;
+            border: none;
+            outline: none;
+            color: var(--clr-text);
+            font-size: 0.9rem;
+            width: 100%;
+            font-family: var(--font-main);
+        }
+        .search-box input::placeholder { color: var(--clr-text-dim); }
+        .search-box span { color: var(--clr-text-dim); }
+
+        /* ── Customer row actions ── */
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px; height: 30px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all var(--transition);
+        }
+        .btn-icon--open   { background: rgba(46,213,115,0.1);  color: var(--clr-success); }
+        .btn-icon--close  { background: rgba(255,71,87,0.1);   color: var(--clr-danger);  }
+        .btn-icon--approve{ background: rgba(46,213,115,0.1);  color: var(--clr-success); }
+        .btn-icon--reject { background: rgba(255,71,87,0.1);   color: var(--clr-danger);  }
+        .btn-icon:hover { transform: scale(1.15); }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .stat-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .stat-grid { grid-template-columns: repeat(2, 1fr); }
+            .stat-card { padding: 1rem 1.1rem; }
+            .stat-card__value { font-size: 1.5rem; }
+            .stat-card__icon  { font-size: 1.4rem; margin-bottom: 0.5rem; }
+            /* section display control for mobile */
+            section[id^="section-"] { display: none; }
+            section[id^="section-"].active { display: block !important; }
+        }
+        
+        /* ── Tab filter ── */
+        .tab-filter {
+            display: flex;
+            gap: 4px;
+            background: var(--clr-surface-2);
+            border: 1px solid var(--clr-border);
+            border-radius: var(--radius-sm);
+            padding: 4px;
+        }
+        .tab-filter button {
+            padding: 0.4rem 1rem;
+            border: none;
+            background: none;
+            color: var(--clr-text-muted);
+            font-size: 0.82rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+        .tab-filter button.active {
+            background: var(--clr-card);
+            color: var(--clr-primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .stat-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .stat-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="dashboard-layout">
+
+    <!-- ══ SIDEBAR ══ -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <a href="index.html" class="brand">
+                <div class="brand-icon">🏦</div>
+                <span>Matir Bank</span>
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <button class="nav-item active" id="nav-overview"     onclick="showSection('overview')">
+                <span class="nav-icon">📊</span> Overview
+            </button>
+            <button class="nav-item" id="nav-customers"   onclick="showSection('customers')">
+                <span class="nav-icon">👥</span> Customers
+            </button>
+            <button class="nav-item" id="nav-accounts"    onclick="showSection('accounts')">
+                <span class="nav-icon">🏦</span> Accounts
+            </button>
+            <button class="nav-item" id="nav-transactions" onclick="showSection('transactions')">
+                <span class="nav-icon">💸</span> Transactions
+            </button>
+            <button class="nav-item" id="nav-loans"        onclick="showSection('loans')">
+                <span class="nav-icon">🏛️</span> Loans
+            </button>
+        </nav>
+        <div class="sidebar-footer">
+            <div style="font-size:0.78rem;color:var(--clr-accent);font-weight:700;margin-bottom:0.3rem;">
+                <span class="badge badge--warning" style="font-size:0.7rem;">ADMIN</span>
+            </div>
+            <div style="font-size:0.8rem;color:var(--clr-text-muted);margin-bottom:0.75rem;" id="sidebarUser">—</div>
+            <button class="btn btn--ghost btn--full btn--sm" onclick="logout()">Sign Out</button>
+        </div>
+    </aside>
+
+    <!-- ══ MOBILE HEADER ══ -->
+    <header class="app-header">
+        <div class="app-header__left">
+            <div class="app-header__avatar" style="background:linear-gradient(135deg,#4a90e2,#2f6fbe);">👔</div>
+            <div>
+                <div class="app-header__greeting">Admin Panel</div>
+                <div class="app-header__name" id="headerName">Loading…</div>
+            </div>
+        </div>
+        <div class="app-header__actions">
+            <button class="app-header__btn" onclick="logout()" title="Sign Out">🚪</button>
+        </div>
+    </header>
+
+    <!-- ══ MAIN CONTENT ══ -->
+    <main class="main-content">
+
+        <!-- ═══ OVERVIEW SECTION ═══ -->
+        <section id="section-overview">
+            <div class="page-header fade-in">
+                <h1 class="page-title">Admin Dashboard</h1>
+                <p class="page-subtitle">Manage customers, accounts, loans and transactions</p>
+            </div>
+
+            <!-- Stats -->
+            <div class="stat-grid fade-in">
+                <div class="stat-card stat-card--blue">
+                    <div class="stat-card__icon">👥</div>
+                    <div class="stat-card__value" id="stat-customers">—</div>
+                    <div class="stat-card__label">Total Customers</div>
+                    <div class="stat-card__sub">Registered users</div>
+                </div>
+                <div class="stat-card stat-card--green">
+                    <div class="stat-card__icon">🏦</div>
+                    <div class="stat-card__value" id="stat-accounts">—</div>
+                    <div class="stat-card__label">Active Accounts</div>
+                    <div class="stat-card__sub">Savings &amp; Current</div>
+                </div>
+                <div class="stat-card stat-card--yellow">
+                    <div class="stat-card__icon">⏳</div>
+                    <div class="stat-card__value" id="stat-pending-loans">—</div>
+                    <div class="stat-card__label">Pending Loans</div>
+                    <div class="stat-card__sub">Awaiting approval</div>
+                </div>
+                <div class="stat-card stat-card--purple">
+                    <div class="stat-card__icon">💸</div>
+                    <div class="stat-card__value" id="stat-transactions">—</div>
+                    <div class="stat-card__label">Transactions</div>
+                    <div class="stat-card__sub">All time</div>
+                </div>
+            </div>
+
+            <!-- Pending Loans quick view -->
+            <div class="card fade-in">
+                <div class="card-header">
+                    <span class="card-title">⏳ Pending Loan Requests</span>
+                    <button class="btn btn--ghost btn--sm" onclick="showSection('loans')">View All</button>
+                </div>
+                <div id="overviewPendingLoans"><div class="spinner"></div></div>
+            </div>
+        </section>
+
+        <!-- ═══ CUSTOMERS SECTION ═══ -->
+        <section id="section-customers" style="display:none;">
+            <div class="page-header fade-in">
+                <h1 class="page-title">Customers</h1>
+                <p class="page-subtitle">View and manage all registered customers</p>
+            </div>
+            <div class="card fade-in">
+                <div class="action-row">
+                    <div class="search-box">
+                        <span>🔍</span>
+                        <input type="text" id="customerSearch" placeholder="Search by name or email…" oninput="filterCustomers()">
+                    </div>
+                </div>
+                <div id="customersContainer"><div class="spinner"></div></div>
+            </div>
+        </section>
+
+        <!-- ═══ ACCOUNTS SECTION ═══ -->
+        <section id="section-accounts" style="display:none;">
+            <div class="page-header fade-in">
+                <h1 class="page-title">Accounts</h1>
+                <p class="page-subtitle">Open or close customer bank accounts</p>
+            </div>
+            <!-- Open Account Form -->
+            <div class="card fade-in" style="margin-bottom:1.5rem;">
+                <div class="card-header"><span class="card-title">➕ Open New Account</span></div>
+                <form id="openAccountForm" style="display:grid;grid-template-columns:1fr 1fr auto;gap:1rem;align-items:end;">
+                    <div class="form-group" style="margin:0;">
+                        <label class="form-label">Customer ID</label>
+                        <input class="form-input" type="text" id="openAccUserId" placeholder="e.g. 3" required>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label class="form-label">Account Type</label>
+                        <select class="form-select" id="openAccType">
+                            <option value="SAVINGS">Savings</option>
+                            <option value="CURRENT">Current</option>
+                        </select>
+                    </div>
+                    <button class="btn btn--accent" type="submit">Open Account</button>
+                </form>
+            </div>
+            <!-- All Accounts List -->
+            <div class="card fade-in">
+                <div class="card-header">
+                    <span class="card-title">🏦 All Accounts</span>
+                    <div class="tab-filter" id="accStatusFilter">
+                        <button class="active" onclick="filterAccounts('ALL', this)">All</button>
+                        <button onclick="filterAccounts('ACTIVE', this)">Active</button>
+                        <button onclick="filterAccounts('CLOSED', this)">Closed</button>
+                    </div>
+                </div>
+                <div id="accountsContainer"><div class="spinner"></div></div>
+            </div>
+        </section>
+
+        <!-- ═══ TRANSACTIONS SECTION ═══ -->
+        <section id="section-transactions" style="display:none;">
+            <div class="page-header fade-in">
+                <h1 class="page-title">All Transactions</h1>
+                <p class="page-subtitle">System-wide transaction history</p>
+            </div>
+            <div class="card fade-in">
+                <div class="action-row">
+                    <div class="tab-filter" id="txTypeFilter">
+                        <button class="active" onclick="filterTx('ALL', this)">All</button>
+                        <button onclick="filterTx('DEPOSIT', this)">Deposit</button>
+                        <button onclick="filterTx('WITHDRAW', this)">Withdraw</button>
+                        <button onclick="filterTx('TRANSFER', this)">Transfer</button>
+                    </div>
+                    <div class="search-box">
+                        <span>🔍</span>
+                        <input type="text" id="txSearch" placeholder="Search account number…" oninput="filterTxSearch()">
+                    </div>
+                </div>
+                <div id="txContainer"><div class="spinner"></div></div>
+            </div>
+        </section>
+
+        <!-- ═══ LOANS SECTION ═══ -->
+        <section id="section-loans" style="display:none;">
+            <div class="page-header fade-in">
+                <h1 class="page-title">Loan Management</h1>
+                <p class="page-subtitle">Review and approve or reject loan applications</p>
+            </div>
+            <div class="card fade-in">
+                <div class="action-row">
+                    <div class="tab-filter" id="loanStatusFilter">
+                        <button class="active" onclick="filterLoans('ALL', this)">All</button>
+                        <button onclick="filterLoans('PENDING', this)">Pending</button>
+                        <button onclick="filterLoans('APPROVED', this)">Approved</button>
+                        <button onclick="filterLoans('REJECTED', this)">Rejected</button>
+                        <button onclick="filterLoans('PAID', this)">Paid</button>
+                    </div>
+                </div>
+                <div id="loansContainer"><div class="spinner"></div></div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- ══ CONFIRM MODAL ══ -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal" style="max-width:380px;">
+        <div class="modal-header">
+            <h3 id="confirmTitle">Confirm Action</h3>
+            <button class="modal-close" onclick="closeModal('confirmModal')">×</button>
+        </div>
+        <p id="confirmMsg" style="color:var(--clr-text-muted);margin-bottom:1.5rem;font-size:0.95rem;"></p>
+        <div style="display:flex;gap:0.75rem;">
+            <button class="btn btn--ghost btn--full" onclick="closeModal('confirmModal')">Cancel</button>
+            <button class="btn btn--primary btn--full" id="confirmBtn">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/config.js"></script>
+<script>
+    requireAuth(["ADMIN", "MANAGER"]);
+
+    // ── Data stores ──
+    let allCustomers   = [];
+    let allAccounts    = [];
+    let allTx          = [];
+    let allLoans       = [];
+    let currentAccFilter = "ALL";
+    let currentTxFilter  = "ALL";
+    let currentLoanFilter = "ALL";
+    let currentAccountFilterUserId = null;
+
+    // ── Init ──
+    async function init() {
+        try {
+            const me = await apiCall(CONFIG.API.ADMIN_ME);
+            document.getElementById("sidebarUser").textContent = me.name || me.email || "Admin";
+            document.getElementById("headerName").textContent = me.name || "Matir Bank";
+            await Promise.all([loadStats(), loadPendingLoansOverview()]);
+        } catch (err) {
+            showToast("Failed to load dashboard", "error");
+        }
+    }
+
+    // ── Stats ──
+    async function loadStats() {
+        try {
+            const [customers, accounts, pendingLoans, allTxData] = await Promise.all([
+                apiCall(CONFIG.API.ADMIN_CUSTOMERS),
+                apiCall(CONFIG.API.ACCOUNTS_ALL),
+                apiCall(CONFIG.API.LOANS_PENDING),
+                apiCall(CONFIG.API.TX_ALL),
+            ]);
+            allCustomers = customers;
+            allAccounts  = accounts;
+            allTx        = allTxData;
+
+            const activeAccts = accounts.filter(a => a.isActive).length;
+            document.getElementById("stat-customers").textContent     = customers.length;
+            document.getElementById("stat-accounts").textContent      = activeAccts;
+            document.getElementById("stat-pending-loans").textContent = pendingLoans.length;
+            document.getElementById("stat-transactions").textContent  = allTxData.length;
+        } catch(e) { /* stats best-effort */ }
+    }
+
+    // ── SECTION NAVIGATION ──
+    const SECTIONS = ["overview","customers","accounts","transactions","loans"];
+    function showSection(name) {
+        SECTIONS.forEach(s => {
+            const sec = document.getElementById(`section-${s}`);
+            if (sec) {
+                sec.style.display = s === name ? "block" : "none";
+                sec.classList.toggle("active", s === name);
+            }
+            const dn = document.getElementById(`nav-${s}`);
+            if (dn) dn.classList.toggle("active", s === name);
+            
+            const mn = document.getElementById(`mnav-${s}`);
+            if (mn) mn.classList.toggle("active", s === name);
+        });
+        if (name === "customers")    loadCustomers();
+        if (name === "accounts")     loadAccounts();
+        if (name === "transactions") loadTransactions();
+        if (name === "loans")        loadLoans();
+    }
+    
+    // Clear filters when navigating via sidebar
+    document.getElementById("nav-accounts").addEventListener("click", () => {
+        currentAccountFilterUserId = null;
+    });
+
+    // ════════════════════════════════
+    //  OVERVIEW — PENDING LOANS
+    // ════════════════════════════════
+    async function loadPendingLoansOverview() {
+        const container = document.getElementById("overviewPendingLoans");
+        try {
+            const loans = await apiCall(CONFIG.API.LOANS_PENDING);
+            if (!loans.length) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state__icon">✅</div><div class="empty-state__text">No pending loan requests</div></div>`;
+                return;
+            }
+            container.innerHTML = renderLoanTable(loans.slice(0, 5), true);
+        } catch(e) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__text">${e.message}</div></div>`;
+        }
+    }
+
+    // ════════════════════════════════
+    //  CUSTOMERS
+    // ════════════════════════════════
+    async function loadCustomers() {
+        const container = document.getElementById("customersContainer");
+        container.innerHTML = `<div class="spinner"></div>`;
+        try {
+            allCustomers = await apiCall(CONFIG.API.ADMIN_CUSTOMERS);
+            renderCustomers(allCustomers);
+        } catch(e) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__text">${e.message}</div></div>`;
+        }
+    }
+
+    function renderCustomers(list) {
+        const container = document.getElementById("customersContainer");
+        if (!list.length) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__icon">👥</div><div class="empty-state__text">No customers found</div></div>`;
+            return;
+        }
+        container.innerHTML = `
+            <div class="table-container">
+                <table class="table">
+                    <thead><tr>
+                        <th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>NID Card</th><th>Address</th><th>Joined</th><th>Actions</th>
+                    </tr></thead>
+                    <tbody>${list.map(c => `
+                        <tr>
+                            <td style="color:var(--clr-text-dim);font-family:monospace;">#${c.id}</td>
+                            <td style="font-weight:600;">${c.name}</td>
+                            <td style="color:var(--clr-text-muted);">${c.email}</td>
+                            <td style="color:var(--clr-text-muted);font-family:monospace;">${c.phone || "—"}</td>
+                            <td style="color:var(--clr-text-muted);font-family:monospace;">${c.nid || "—"}</td>
+                            <td style="color:var(--clr-text-muted);">${c.address || "—"}</td>
+                            <td style="color:var(--clr-text-muted);">${formatDate(c.createdAt)}</td>
+                            <td>
+                                <button class="btn btn--ghost btn--sm" onclick="viewCustomerAccounts(${c.id}, '${c.name}')">View Accounts</button>
+                            </td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    function filterCustomers() {
+        const q = document.getElementById("customerSearch").value.toLowerCase();
+        const filtered = allCustomers.filter(c =>
+            c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || (c.nid && c.nid.includes(q))
+        );
+        renderCustomers(filtered);
+    }
+
+    function viewCustomerAccounts(userId, name) {
+        currentAccountFilterUserId = userId; // Set filter
+        showSection('accounts');
+        showToast(`Showing accounts for ${name}`, "info");
+    }
+
+    // ════════════════════════════════
+    //  ACCOUNTS
+    // ════════════════════════════════
+    async function loadAccounts() {
+        const container = document.getElementById("accountsContainer");
+        container.innerHTML = `<div class="spinner"></div>`;
+        try {
+            allAccounts = await apiCall(CONFIG.API.ACCOUNTS_ALL);
+            // If viewing a specific user's accounts, apply filter
+            if (currentAccountFilterUserId) {
+                const filtered = allAccounts.filter(a => a.userId == currentAccountFilterUserId);
+                renderAccounts(filtered, "ALL");
+            } else {
+                renderAccounts(allAccounts, currentAccFilter);
+            }
+        } catch(e) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__text">${e.message}</div></div>`;
+        }
+    }
+
+    function renderAccounts(list, filter) {
+        const filtered = filter === "ALL" ? list :
+                         filter === "ACTIVE" ? list.filter(a => a.isActive) :
+                         list.filter(a => !a.isActive);
+        const container = document.getElementById("accountsContainer");
+        if (!filtered.length) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__icon">🏦</div><div class="empty-state__text">No accounts found</div></div>`;
+            return;
+        }
+        container.innerHTML = `
+            <div class="table-container">
+                <table class="table">
+                    <thead><tr>
+                        <th>Account #</th><th>Type</th><th>Balance</th><th>Owner (ID)</th><th>Status</th><th>Actions</th>
+                    </tr></thead>
+                    <tbody>${filtered.map(a => `
+                        <tr>
+                            <td style="font-family:monospace;font-size:0.85rem;">${formatAccNum(a.accountNumber)}</td>
+                            <td><span class="badge badge--primary">${a.accountType}</span></td>
+                            <td style="font-weight:700;color:var(--clr-accent);">${formatBDT(a.balance)}</td>
+                            <td style="color:var(--clr-text-muted);">User #${a.userId ?? a.user?.id ?? "—"}</td>
+                            <td>
+                                <span class="badge ${a.isActive ? 'badge--success' : 'badge--danger'}" style="margin-right: 4px;">${a.isActive ? 'Active' : 'Closed'}</span>
+                                <span class="badge ${a.isApproved ? 'badge--success' : 'badge--warning'}" style="margin-right: 4px;">${a.isApproved ? 'Approved' : 'Pending Approval'}</span>
+                                ${a.isFrozen ? `<span class="badge badge--danger" style="animation: pulse 2s infinite;">Frozen</span>` : ''}
+                            </td>
+                            <td style="display:flex;gap:6px;">
+                                ${!a.isApproved
+                                    ? `<button class="btn-icon btn-icon--approve" title="Approve Account" onclick="approveAccount('${a.accountNumber}')">✅</button>`
+                                    : ''
+                                }
+                                ${a.isActive
+                                    ? `<button class="btn-icon btn-icon--close" title="Close Account" onclick="closeAccount('${a.accountNumber}')">🔒</button>`
+                                    : `<button class="btn-icon btn-icon--open"  title="Reopen Account" onclick="reopenAccount('${a.accountNumber}')">🔓</button>`
+                                }
+                                ${a.isActive && a.isApproved
+                                    ? (a.isFrozen
+                                        ? `<button class="btn-icon btn-icon--open" title="Unfreeze Account" onclick="unfreezeAccount('${a.accountNumber}')">❄️</button>`
+                                        : `<button class="btn-icon btn-icon--close" title="Freeze Account" onclick="freezeAccount('${a.accountNumber}')">🚨</button>`
+                                      )
+                                    : ''
+                                }
+                            </td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    function filterAccounts(filter, btn) {
+        currentAccFilter = filter;
+        document.querySelectorAll("#accStatusFilter button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderAccounts(allAccounts, filter);
+    }
+
+    function approveAccount(accountNumber) {
+        showConfirm(
+            "Approve Account",
+            `Are you sure you want to approve account ${formatAccNum(accountNumber)}?`,
+            async () => {
+                try {
+                    await apiCall(CONFIG.API.ACCOUNTS_APPROVE, "POST", { accountNumber });
+                    showToast("Account approved successfully", "success");
+                    loadAccounts();
+                } catch(e) { showToast(e.message, "error"); }
+            }
+        );
+    }
+
+    function closeAccount(accountNumber) {
+        showConfirm(
+            "Close Account",
+            `Are you sure you want to close account ${formatAccNum(accountNumber)}? This action can be reversed.`,
+            async () => {
+                try {
+                    await apiCall(CONFIG.API.ACCOUNTS_CLOSE, "POST", { accountNumber });
+                    showToast("Account closed successfully", "success");
+                    loadAccounts();
+                } catch(e) { showToast(e.message, "error"); }
+            }
+        );
+    }
+
+    function reopenAccount(accountNumber) {
+        showConfirm(
+            "Reopen Account",
+            `Reopen account ${formatAccNum(accountNumber)}?`,
+            async () => {
+                try {
+                    await apiCall(CONFIG.API.ACCOUNTS_APPROVE, "POST", { accountNumber });
+                    showToast("Account reopened and activated!", "success");
+                    loadAccounts();
+                } catch(e) { showToast(e.message, "error"); }
+            }
+        );
+    }
+
+    function freezeAccount(accountNumber) {
+        showConfirm(
+            "Freeze Account",
+            `Are you sure you want to FREEZE account ${formatAccNum(accountNumber)} due to suspicious activity?`,
+            async () => {
+                try {
+                    await apiCall(CONFIG.API.ACCOUNTS_FREEZE, "POST", { accountNumber });
+                    showToast("Account frozen successfully", "success");
+                    loadAccounts();
+                } catch(e) { showToast(e.message, "error"); }
+            }
+        );
+    }
+
+    function unfreezeAccount(accountNumber) {
+        showConfirm(
+            "Unfreeze Account",
+            `Unfreeze account ${formatAccNum(accountNumber)}?`,
+            async () => {
+                try {
+                    await apiCall(CONFIG.API.ACCOUNTS_UNFREEZE, "POST", { accountNumber });
+                    showToast("Account unfrozen successfully", "success");
+                    loadAccounts();
+                } catch(e) { showToast(e.message, "error"); }
+            }
+        );
+    }
+
+    // Open account form
+    document.getElementById("openAccountForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const userId      = document.getElementById("openAccUserId").value;
+        const accountType = document.getElementById("openAccType").value;
+        try {
+            await apiCall(CONFIG.API.ACCOUNTS_OPEN, "POST", { userId, accountType });
+            showToast("Account opened successfully!", "success");
+            document.getElementById("openAccountForm").reset();
+            loadAccounts();
+        } catch(err) { showToast(err.message, "error"); }
+    });
+
+    // ════════════════════════════════
+    //  TRANSACTIONS
+    // ════════════════════════════════
+    async function loadTransactions() {
+        const container = document.getElementById("txContainer");
+        container.innerHTML = `<div class="spinner"></div>`;
+        try {
+            allTx = await apiCall(CONFIG.API.TX_ALL);
+            renderTx(allTx, currentTxFilter, "");
+        } catch(e) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__text">${e.message}</div></div>`;
+        }
+    }
+
+    function renderTx(list, typeFilter, searchQ) {
+        let filtered = typeFilter === "ALL" ? list : list.filter(t => t.type === typeFilter);
+        if (searchQ) filtered = filtered.filter(t =>
+            (t.fromAccount || "").includes(searchQ) || (t.toAccount || "").includes(searchQ)
+        );
+        const container = document.getElementById("txContainer");
+        if (!filtered.length) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__icon">📭</div><div class="empty-state__text">No transactions found</div></div>`;
+            return;
+        }
+        container.innerHTML = `
+            <div class="table-container">
+                <table class="table">
+                    <thead><tr>
+                        <th>Date</th><th>Type</th><th>From</th><th>To</th><th>Amount</th><th>Description</th>
+                    </tr></thead>
+                    <tbody>${filtered.map(tx => `
+                        <tr>
+                            <td style="color:var(--clr-text-muted);font-size:0.82rem;">${formatDate(tx.timestamp)}</td>
+                            <td><span class="badge ${txBadge(tx.type)}">${tx.type}</span></td>
+                            <td style="font-family:monospace;font-size:0.82rem;">${tx.fromAccount ? formatAccNum(tx.fromAccount) : "—"}</td>
+                            <td style="font-family:monospace;font-size:0.82rem;">${tx.toAccount  ? formatAccNum(tx.toAccount)  : "—"}</td>
+                            <td class="tx--${tx.type}" style="font-weight:700;">${formatBDT(tx.amount)}</td>
+                            <td style="color:var(--clr-text-muted);font-size:0.82rem;">${tx.description || "—"}</td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    function filterTx(type, btn) {
+        currentTxFilter = type;
+        document.querySelectorAll("#txTypeFilter button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderTx(allTx, currentTxFilter, document.getElementById("txSearch").value);
+    }
+
+    function filterTxSearch() {
+        renderTx(allTx, currentTxFilter, document.getElementById("txSearch").value);
+    }
+
+    // ════════════════════════════════
+    //  LOANS
+    // ════════════════════════════════
+    async function loadLoans() {
+        const container = document.getElementById("loansContainer");
+        container.innerHTML = `<div class="spinner"></div>`;
+        try {
+            allLoans = await apiCall(CONFIG.API.LOANS_ALL);
+            renderLoans(allLoans, currentLoanFilter);
+        } catch(e) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__text">${e.message}</div></div>`;
+        }
+    }
+
+    function renderLoans(list, filter) {
+        const filtered = filter === "ALL" ? list : list.filter(l => l.status === filter);
+        const container = document.getElementById("loansContainer");
+        if (!filtered.length) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state__icon">🏛️</div><div class="empty-state__text">No loans found</div></div>`;
+            return;
+        }
+        container.innerHTML = renderLoanTable(filtered, false);
+    }
+
+    function renderLoanTable(loans, compact) {
+        return `
+            <div class="table-container">
+                <table class="table">
+                    <thead><tr>
+                        <th>ID</th><th>Account ID</th><th>Principal</th><th>Rate</th><th>Tenure</th>
+                        ${compact ? "" : "<th>Monthly EMI</th>"}
+                        <th>Status</th><th>Date</th>
+                        <th>Actions</th>
+                    </tr></thead>
+                    <tbody>${loans.map(l => `
+                        <tr>
+                            <td style="color:var(--clr-text-dim);font-family:monospace;">#${l.id}</td>
+                            <td style="color:var(--clr-text-muted);">${l.accountId ?? l.account?.id ?? "—"}</td>
+                            <td style="font-weight:700;">${formatBDT(l.principal)}</td>
+                            <td>${l.interestRate}%</td>
+                            <td>${l.tenureMonths} mo</td>
+                            ${compact ? "" : `<td>${formatBDT(l.monthlyEmi)}</td>`}
+                            <td><span class="badge loan--${l.status}">${l.status}</span></td>
+                            <td style="color:var(--clr-text-muted);font-size:0.82rem;">${formatDate(l.createdAt)}</td>
+                            <td style="display:flex;gap:6px;">
+                                ${l.status === "PENDING" ? `
+                                    <button class="btn-icon btn-icon--approve" title="Approve" onclick="approveLoan(${l.id})">✅</button>
+                                    <button class="btn-icon btn-icon--reject"  title="Reject"  onclick="rejectLoan(${l.id})">❌</button>
+                                ` : `<span style="color:var(--clr-text-dim);font-size:0.78rem;">—</span>`}
+                            </td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    function filterLoans(filter, btn) {
+        currentLoanFilter = filter;
+        document.querySelectorAll("#loanStatusFilter button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderLoans(allLoans, filter);
+    }
+
+    async function approveLoan(id) {
+        showConfirm("Approve Loan", `Approve loan #${id}?`, async () => {
+            try {
+                await apiCall(CONFIG.API.LOAN_APPROVE(id), "POST");
+                showToast("Loan approved!", "success");
+                loadLoans();
+                loadPendingLoansOverview();
+                loadStats();
+            } catch(e) { showToast(e.message, "error"); }
+        });
+    }
+
+    async function rejectLoan(id) {
+        showConfirm("Reject Loan", `Reject loan #${id}? This cannot be undone.`, async () => {
+            try {
+                await apiCall(CONFIG.API.LOAN_REJECT(id), "POST");
+                showToast("Loan rejected.", "info");
+                loadLoans();
+                loadPendingLoansOverview();
+                loadStats();
+            } catch(e) { showToast(e.message, "error"); }
+        });
+    }
+
+    // ════════════════════════════════
+    //  HELPERS
+    // ════════════════════════════════
+    function formatAccNum(num) {
+        if (!num) return "—";
+        return num.replace(/(\d{4})(\d{4})(\d+)/, "$1 $2 $3");
+    }
+
+    function txBadge(type) {
+        return { DEPOSIT:"badge--success", WITHDRAW:"badge--danger", TRANSFER:"badge--primary" }[type] || "badge--muted";
+    }
+
+    // ── Confirm modal ──
+    let _confirmFn = null;
+    function showConfirm(title, msg, fn) {
+        document.getElementById("confirmTitle").textContent = title;
+        document.getElementById("confirmMsg").textContent   = msg;
+        _confirmFn = fn;
+        document.getElementById("confirmModal").classList.add("open");
+    }
+    document.getElementById("confirmBtn").addEventListener("click", async () => {
+        closeModal("confirmModal");
+        if (_confirmFn) await _confirmFn();
+        _confirmFn = null;
+    });
+
+    function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+    document.querySelectorAll(".modal-overlay").forEach(el => {
+        el.addEventListener("click", e => { if (e.target === el) el.classList.remove("open"); });
+    });
+
+    init();
+</script>
+
+<!-- ══════════ MOBILE BOTTOM NAV ══════════ -->
+<nav class="mobile-nav">
+    <div class="mobile-nav__inner">
+        <button class="mobile-nav__item active" id="mnav-overview" onclick="showSection('overview')">
+            <span class="mobile-nav__icon">📊</span>
+            <span class="mobile-nav__label">Overview</span>
+        </button>
+        <button class="mobile-nav__item" id="mnav-customers" onclick="showSection('customers')">
+            <span class="mobile-nav__icon">👥</span>
+            <span class="mobile-nav__label">Users</span>
+        </button>
+        <button class="mobile-nav__item" id="mnav-accounts" onclick="showSection('accounts')">
+            <span class="mobile-nav__icon">🏦</span>
+            <span class="mobile-nav__label">Accounts</span>
+        </button>
+        <button class="mobile-nav__item" id="mnav-transactions" onclick="showSection('transactions')">
+            <span class="mobile-nav__icon">💸</span>
+            <span class="mobile-nav__label">Txns</span>
+        </button>
+        <button class="mobile-nav__item" id="mnav-loans" onclick="showSection('loans')">
+            <span class="mobile-nav__icon">🏛️</span>
+            <span class="mobile-nav__label">Loans</span>
+        </button>
+    </div>
+</nav>
+</body>
+</html>

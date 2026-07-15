@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manager Portal — Matir Bank</title>
+    <meta name="description" content="Secure portal for Matir Bank system manager.">
+    <link rel="stylesheet" href="../css/style.css?v=2">
+    <style>
+        .auth-toggle { text-align: center; margin-top: 1.2rem; font-size: 0.88rem; color: var(--clr-text-muted); }
+        .auth-toggle a { color: var(--clr-accent-2); text-decoration: none; font-weight: 600; }
+        .auth-toggle a:hover { text-decoration: underline; }
+
+        .btn--manager {
+            background: linear-gradient(135deg, var(--clr-accent-2), #5a3dc8);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(124,92,252,0.35);
+        }
+        .btn--manager:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(124,92,252,0.5);
+        }
+        .btn--manager:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Attempt counter badge */
+        .attempt-counter {
+            display: none;
+            margin-top: 0.75rem;
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            background: rgba(255, 160, 0, 0.12);
+            border: 1px solid rgba(255, 160, 0, 0.4);
+            color: #ffb300;
+            font-size: 0.82rem;
+            font-weight: 500;
+            text-align: center;
+            animation: fadeIn 0.3s ease;
+        }
+        .attempt-counter.visible { display: block; }
+
+        /* Block screen overlay */
+        .block-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2.5rem 2rem;
+            gap: 1.2rem;
+        }
+        .block-screen.visible { display: flex; }
+        .block-icon {
+            font-size: 3.5rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        .block-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #ff4d4d;
+            margin: 0;
+        }
+        .block-desc {
+            font-size: 0.9rem;
+            color: var(--clr-text-muted);
+            line-height: 1.6;
+            max-width: 320px;
+        }
+        .block-timer {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--clr-accent-2);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 2px;
+        }
+        .block-timer-label {
+            font-size: 0.78rem;
+            color: var(--clr-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: -0.5rem;
+        }
+        .block-badge {
+            display: inline-block;
+            padding: 0.3rem 0.9rem;
+            border-radius: 20px;
+            background: rgba(255,77,77,0.15);
+            border: 1px solid rgba(255,77,77,0.35);
+            color: #ff6b6b;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes pulse  { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+    </style>
+</head>
+<body>
+    <div class="auth-page">
+        <!-- Background blobs -->
+        <div class="auth-bg-blob" style="width:600px;height:600px;background:var(--clr-accent-2);top:-200px;left:-200px;"></div>
+        <div class="auth-bg-blob" style="width:400px;height:400px;background:var(--clr-primary);bottom:-100px;right:-100px;"></div>
+
+        <!-- Manager Login Card -->
+        <div id="loginCard" class="auth-card fade-in" style="display:none;">
+            <div style="text-align:center;margin-bottom:2rem;">
+                <a href="../index.html" class="brand" style="justify-content:center;margin-bottom:1rem;display:flex;">
+                    <div class="brand-icon" style="background: linear-gradient(135deg, var(--clr-accent-2), #5a3dc8);">👑</div>
+                    <span>Matir Bank <span style="font-weight: 400; font-size: 1.1rem; color: var(--clr-accent-2); margin-left: 5px;">Manager</span></span>
+                </a>
+            </div>
+            <h2 class="auth-card-title">Manager Sign In</h2>
+            <p class="auth-card-subtitle">Access system administration and reports</p>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="loginEmail">Manager Email</label>
+                    <input class="form-input" type="email" id="loginEmail" placeholder="manager@matirbank.com" required autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="loginPassword">Password</label>
+                    <input class="form-input" type="password" id="loginPassword" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+                <button class="btn btn--manager btn--full" type="submit" id="loginBtn">Sign In</button>
+
+                <!-- Shows remaining attempts after a failed login -->
+                <div class="attempt-counter" id="attemptCounter"></div>
+            </form>
+            <div class="auth-toggle">
+                Are you a Customer? <a href="../index.html">Customer Portal</a>
+            </div>
+        </div>
+
+        <!-- 24-Hour Block Screen (replaces login card when blocked) -->
+        <div id="blockCard" class="auth-card fade-in" style="display:none;">
+            <div class="block-screen visible">
+                <div class="block-icon">🔒</div>
+                <div class="block-badge">ACCESS BLOCKED</div>
+                <h2 class="block-title">Too Many Failed Attempts</h2>
+                <p class="block-desc">
+                    3 consecutive failed login attempts were detected from your browser and IP address.
+                    Access has been suspended for <strong>24 hours</strong> as a security measure.
+                </p>
+                <div class="block-timer" id="blockCountdown">--:--:--</div>
+                <div class="block-timer-label">Time remaining</div>
+                <p class="block-desc" style="font-size:0.78rem;">
+                    If you believe this is an error, please contact the system administrator.
+                </p>
+                <a href="../index.html" class="btn btn--manager" style="margin-top:0.5rem; text-decoration:none; text-align:center;">
+                    ← Back to Home
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <script src="../js/config.js"></script>
+    <script>
+        // ── State ────────────────────────────────────────────────────────
+        let _blockEndsAt   = null; // Date object when the block expires
+        let _countdownTimer = null;
+
+        // ── Init ─────────────────────────────────────────────────────────
+        async function init() {
+            // Clear any stale block on fresh page load
+            localStorage.removeItem("mb_mgr_block");
+
+            // Already logged in as Manager → go to dashboard
+            const token = getToken();
+            if (token && getRole() === "MANAGER") {
+                window.location.href = "../dashboard-manager.html";
+                return;
+            } else if (token) {
+                // Logged in as another role — silently clear
+                logoutSilently();
+            }
+
+            // Check if client is currently blocked (persisted in localStorage)
+            if (checkLocalBlock()) return;
+
+            // Show login card (setup is always completed — manager is hardcoded)
+            document.getElementById("loginCard").style.display = "block";
+        }
+
+        // ── Local block persistence ───────────────────────────────────────
+        /**
+         * Saves the block expiry time to localStorage so it persists across
+         * page refreshes (the server-side block is the authoritative one,
+         * but this gives instant feedback without an extra round-trip).
+         */
+        function saveLocalBlock(minutesRemaining) {
+            const expiresAt = Date.now() + minutesRemaining * 60 * 1000;
+            localStorage.setItem("mb_mgr_block", String(expiresAt));
+        }
+
+        function checkLocalBlock() {
+            const raw = localStorage.getItem("mb_mgr_block");
+            if (!raw) return false;
+            const expiresAt = parseInt(raw, 10);
+            if (Date.now() >= expiresAt) {
+                localStorage.removeItem("mb_mgr_block");
+                return false;
+            }
+            // Still blocked — show block screen
+            showBlockScreen(expiresAt);
+            return true;
+        }
+
+        function clearLocalBlock() {
+            localStorage.removeItem("mb_mgr_block");
+        }
+
+        // ── Block screen ─────────────────────────────────────────────────
+        function showBlockScreen(expiresAtMs) {
+            document.getElementById("loginCard").style.display = "none";
+            document.getElementById("blockCard").style.display = "block";
+            _blockEndsAt = new Date(expiresAtMs);
+            startCountdown();
+        }
+
+        function startCountdown() {
+            if (_countdownTimer) clearInterval(_countdownTimer);
+            updateCountdown(); // immediate first tick
+            _countdownTimer = setInterval(updateCountdown, 1000);
+        }
+
+        function updateCountdown() {
+            const now       = Date.now();
+            const remaining = _blockEndsAt - now;
+
+            if (remaining <= 0) {
+                clearInterval(_countdownTimer);
+                clearLocalBlock();
+                document.getElementById("blockCountdown").textContent = "00:00:00";
+                // Reload to show login form again
+                setTimeout(() => window.location.reload(), 800);
+                return;
+            }
+
+            const h = Math.floor(remaining / 3_600_000);
+            const m = Math.floor((remaining % 3_600_000) / 60_000);
+            const s = Math.floor((remaining % 60_000) / 1000);
+            document.getElementById("blockCountdown").textContent =
+                String(h).padStart(2,"0") + ":" +
+                String(m).padStart(2,"0") + ":" +
+                String(s).padStart(2,"0");
+        }
+
+        // ── Auth helpers ─────────────────────────────────────────────────
+        function logoutSilently() {
+            localStorage.removeItem("mb_token");
+            localStorage.removeItem("mb_role");
+            localStorage.removeItem("mb_userId");
+        }
+
+        // ── Login handler ────────────────────────────────────────────────
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const btn     = document.getElementById("loginBtn");
+            const counter = document.getElementById("attemptCounter");
+            btn.disabled  = true;
+            btn.textContent = "Verifying…";
+
+            try {
+                const response = await fetch(CONFIG.BACKEND_BASE_URL + CONFIG.API.AUTH_LOGIN, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email:    document.getElementById("loginEmail").value,
+                        password: document.getElementById("loginPassword").value,
+                    })
+                });
+
+                const data = await response.json();
+
+                // ── HTTP 429: Blocked ────────────────────────────────────
+                if (response.status === 429) {
+                    const mins = data.blockedMinutesRemaining || 1440;
+                    saveLocalBlock(mins);
+                    showBlockScreen(Date.now() + mins * 60 * 1000);
+                    showToast("Access blocked for 24 hours due to too many failed attempts.", "error");
+                    return;
+                }
+
+                // ── HTTP 401: Wrong credentials ──────────────────────────
+                if (!response.ok) {
+                    const left = data.attemptsLeft;
+                    if (typeof left === "number" && left > 0) {
+                        counter.textContent = `⚠️ Wrong credentials — ${left} attempt(s) left before 24-hour block.`;
+                        counter.classList.add("visible");
+                    } else if (typeof left === "number" && left === 0) {
+                        // This shouldn't happen (server sends 429 on 3rd), but handle it
+                        counter.textContent = "⚠️ No attempts remaining.";
+                        counter.classList.add("visible");
+                    }
+                    showToast(data.message || data.error || "Login failed", "error");
+                    btn.disabled    = false;
+                    btn.textContent = "Sign In";
+                    return;
+                }
+
+                // ── Success ──────────────────────────────────────────────
+                // Decode token and verify role
+                const payload = JSON.parse(atob(data.token.split(".")[1]));
+                if (payload.role !== "MANAGER") {
+                    showToast("Access denied: Not a manager account.", "error");
+                    btn.disabled    = false;
+                    btn.textContent = "Sign In";
+                    return;
+                }
+
+                clearLocalBlock();
+                counter.classList.remove("visible");
+                saveAuth(data.token);
+                showToast("Welcome to Manager Panel! 👑", "success");
+                setTimeout(() => { window.location.href = "../dashboard-manager.html"; }, 1000);
+
+            } catch (err) {
+                showToast("Connection error. Please try again.", "error");
+                btn.disabled    = false;
+                btn.textContent = "Sign In";
+            }
+        });
+
+        // ── Start ────────────────────────────────────────────────────────
+        init();
+    </script>
+</body>
+</html>

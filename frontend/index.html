@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Matir Bank — Secure Digital Banking</title>
+    <meta name="description" content="Matir Bank is a secure, full-stack digital banking platform with encrypted data storage, role-based access and free-tier hosting.">
+    <meta name="theme-color" content="#080b12">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="css/style.css?v=3">
+    <style>
+        /* ── Landing page specific ── */
+        .landing-page {
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            display: flex;
+            flex-direction: column;
+            background: var(--clr-bg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated background gradient */
+        .landing-page::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 60% 50% at 20% 20%, rgba(74,144,226,0.08) 0%, transparent 70%),
+                radial-gradient(ellipse 50% 40% at 80% 80%, rgba(0,212,170,0.06) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 40% at 50% 50%, rgba(124,92,252,0.04) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── Top bar ── */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.1rem 1.5rem;
+            padding-top: calc(1.1rem + env(safe-area-inset-top, 0px));
+            position: relative;
+            z-index: 10;
+        }
+        .topbar__links { display: flex; gap: 0.5rem; }
+        .topbar__link {
+            font-size: 0.78rem;
+            color: var(--clr-text-muted);
+            text-decoration: none;
+            font-weight: 600;
+            padding: 0.4rem 0.75rem;
+            border: 1px solid var(--clr-border);
+            border-radius: var(--radius-full);
+            transition: all var(--transition);
+        }
+        .topbar__link:hover { color: var(--clr-primary); border-color: var(--clr-primary); }
+
+        /* ── Hero section ── */
+        .hero-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0.35rem 0.9rem;
+            background: rgba(74,144,226,0.1);
+            border: 1px solid rgba(74,144,226,0.2);
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--clr-primary);
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.04em;
+        }
+        .hero-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 1.5rem;
+        }
+        .hero-logo-icon {
+            width: 60px; height: 60px;
+            background: linear-gradient(135deg, var(--clr-primary), var(--clr-accent));
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            box-shadow: 0 8px 32px rgba(74,144,226,0.4);
+        }
+        .hero-title {
+            font-size: clamp(2rem, 7vw, 3.2rem);
+            font-family: var(--font-brand);
+            font-weight: 800;
+            line-height: 1.12;
+            margin-bottom: 1rem;
+            letter-spacing: -1px;
+        }
+        .hero-subtitle {
+            font-size: clamp(0.9rem, 3vw, 1.05rem);
+            color: var(--clr-text-muted);
+            max-width: 400px;
+            line-height: 1.65;
+            margin-bottom: 2rem;
+        }
+
+        /* ── CTA Buttons ── */
+        .cta-group {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+        .cta-group .btn {
+            padding: 0.85rem 2rem;
+            font-size: 0.95rem;
+            min-width: 140px;
+        }
+
+        /* ── Feature pills ── */
+        .features-row {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+        .feature-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--clr-surface-2);
+            border: 1px solid var(--clr-border);
+            border-radius: var(--radius-full);
+            padding: 0.38rem 0.85rem;
+            font-size: 0.75rem;
+            color: var(--clr-text-muted);
+            font-weight: 500;
+        }
+        .feature-pill em { color: var(--clr-accent); font-style: normal; }
+
+        /* ── Auth card section ── */
+        .auth-section {
+            width: 100%;
+            max-width: 420px;
+            position: relative;
+            z-index: 10;
+        }
+        .auth-tabs {
+            display: flex;
+            background: var(--clr-surface-2);
+            border-radius: var(--radius-sm);
+            padding: 4px;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--clr-border);
+        }
+        .auth-tab {
+            flex: 1;
+            padding: 0.55rem;
+            border: none;
+            background: none;
+            color: var(--clr-text-muted);
+            font-family: var(--font-main);
+            font-size: 0.88rem;
+            font-weight: 600;
+            border-radius: var(--radius-xs);
+            cursor: pointer;
+            transition: all var(--transition);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .auth-tab.active {
+            background: var(--clr-card);
+            color: var(--clr-text);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        /* ── Back button ── */
+        .back-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: var(--clr-text-muted);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.5rem 0;
+            margin-bottom: 1.25rem;
+            font-family: var(--font-main);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .back-btn:hover { color: var(--clr-text); }
+
+        /* Bottom staff links */
+        .staff-links {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            padding: 1.25rem;
+            padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+            font-size: 0.8rem;
+            color: var(--clr-text-muted);
+            position: relative;
+            z-index: 10;
+            border-top: 1px solid var(--clr-border);
+        }
+        .staff-links a {
+            color: var(--clr-text-muted);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color var(--transition);
+        }
+        .staff-links a:hover { color: var(--clr-primary); }
+        .staff-links__dot { opacity: 0.3; }
+
+        /* Transition classes */
+        #loginFormWrap, #registerFormWrap { display: none; }
+        #loginFormWrap.visible, #registerFormWrap.visible { display: block; }
+    </style>
+</head>
+<body>
+<div class="landing-page">
+
+    <!-- Top Bar -->
+    <div class="topbar">
+        <div class="brand">
+            <div class="brand-icon">🏦</div>
+            <span>Matir Bank</span>
+        </div>
+        <div class="topbar__links">
+            <a href="admin/" class="topbar__link">👤 Admin</a>
+            <a href="manager/" class="topbar__link">👑 Manager</a>
+        </div>
+    </div>
+
+    <!-- ══ HERO (default view) ══ -->
+    <section id="heroSection" class="hero-section">
+        <div class="hero-badge">🇧🇩 &nbsp;Digital Banking for Bangladesh</div>
+        <div class="hero-logo">
+            <div class="hero-logo-icon">🏦</div>
+        </div>
+        <h1 class="hero-title">Banking <span class="gradient-text">reimagined</span><br>for everyone</h1>
+        <p class="hero-subtitle">Secure, encrypted, full-stack digital banking. Deposits, withdrawals, transfers, and loans — all in your pocket.</p>
+        <div class="cta-group">
+            <button class="btn btn--primary" onclick="showView('login')" id="heroLoginBtn">Sign In</button>
+            <button class="btn btn--ghost" onclick="showView('register')">Open Account</button>
+        </div>
+        <div class="features-row">
+            <div class="feature-pill"><em>🔐</em> XOR Encrypted</div>
+            <div class="feature-pill"><em>🪪</em> JWT Auth</div>
+            <div class="feature-pill"><em>⚡</em> Spring Boot</div>
+            <div class="feature-pill"><em>🆓</em> Free Tier</div>
+        </div>
+    </section>
+
+    <!-- ══ AUTH CARD VIEW ══ -->
+    <section id="authSection" class="hero-section" style="display:none;">
+        <div class="auth-section fade-in">
+            <button class="back-btn" onclick="showView('hero')">← Back</button>
+
+            <!-- Tab switcher -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign In</button>
+                <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Register</button>
+            </div>
+
+            <!-- Brand -->
+            <div style="text-align:center;margin-bottom:1.5rem;">
+                <div class="brand" style="justify-content:center;">
+                    <div class="brand-icon">🏦</div>
+                    <span>Matir Bank</span>
+                </div>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginFormWrap" class="visible">
+                <h2 class="auth-card-title" style="text-align:center;">Welcome back</h2>
+                <p class="auth-card-subtitle" style="text-align:center;">Sign in to your account</p>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label class="form-label" for="loginEmail">Email Address</label>
+                        <input class="form-input" type="email" id="loginEmail" placeholder="you@example.com" required autocomplete="email" inputmode="email">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="loginPassword">Password</label>
+                        <input class="form-input" type="password" id="loginPassword" placeholder="••••••••" required autocomplete="current-password">
+                    </div>
+                    <button class="btn btn--primary btn--full" type="submit" id="loginBtn" style="margin-top:0.5rem;">Sign In</button>
+                </form>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerFormWrap">
+                <h2 class="auth-card-title" style="text-align:center;">Open an account</h2>
+                <p class="auth-card-subtitle" style="text-align:center;">Join Matir Bank — it's free</p>
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label class="form-label" for="regName">Full Name</label>
+                        <input class="form-input" type="text" id="regName" placeholder="Ratul Hossain" required autocomplete="name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regEmail">Email Address</label>
+                        <input class="form-input" type="email" id="regEmail" placeholder="you@example.com" required autocomplete="email" inputmode="email">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regNid">NID Card Number</label>
+                        <input class="form-input" type="text" id="regNid" placeholder="199XXXXXXXXXX" required autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regPhone">Mobile Phone</label>
+                        <input class="form-input" type="tel" id="regPhone" placeholder="017XXXXXXXX" required autocomplete="tel" inputmode="tel">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regAddress">Home Address</label>
+                        <input class="form-input" type="text" id="regAddress" placeholder="Dhaka, Bangladesh" required autocomplete="street-address">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regPassword">Password</label>
+                        <input class="form-input" type="password" id="regPassword" placeholder="Min. 8 characters" required minlength="8" autocomplete="new-password">
+                    </div>
+                    <button class="btn btn--accent btn--full" type="submit" id="regBtn" style="margin-top:0.5rem;">Create Account</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Staff portal links (bottom) -->
+    <div class="staff-links">
+        <span>Staff Portal:</span>
+        <a href="admin/">👤 Admin</a>
+        <span class="staff-links__dot">•</span>
+        <a href="manager/">👑 Manager</a>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<script src="js/config.js"></script>
+<script>
+    // Auto-redirect if logged in
+    if (getToken()) {
+        const role = getRole();
+        if (role === "CUSTOMER") window.location.href = "dashboard-customer.html";
+        else if (role === "ADMIN")    window.location.href = "dashboard-admin.html";
+        else if (role === "MANAGER")  window.location.href = "dashboard-manager.html";
+    }
+
+    // ── View switching ───────────────────────────────────────────────────
+    function showView(view) {
+        const hero = document.getElementById("heroSection");
+        const auth = document.getElementById("authSection");
+        if (view === "hero") {
+            hero.style.display = "flex";
+            auth.style.display = "none";
+        } else {
+            hero.style.display = "none";
+            auth.style.display = "flex";
+            if (view === "login") switchTab("login");
+            if (view === "register") switchTab("register");
+        }
+    }
+
+    function switchTab(tab) {
+        document.getElementById("tab-login").classList.toggle("active", tab === "login");
+        document.getElementById("tab-register").classList.toggle("active", tab === "register");
+        document.getElementById("loginFormWrap").classList.toggle("visible", tab === "login");
+        document.getElementById("registerFormWrap").classList.toggle("visible", tab === "register");
+    }
+
+    // ── Login ─────────────────────────────────────────────────────────────
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById("loginBtn");
+        btn.disabled = true; btn.textContent = "Signing in…";
+        try {
+            const data = await apiCall(CONFIG.API.AUTH_LOGIN, "POST", {
+                email:    document.getElementById("loginEmail").value,
+                password: document.getElementById("loginPassword").value,
+            });
+            saveAuth(data.token);
+            const role = getRole();
+            showToast("Welcome back! 🎉", "success");
+            setTimeout(() => {
+                if (role === "CUSTOMER") window.location.href = "dashboard-customer.html";
+                else if (role === "ADMIN")   window.location.href = "dashboard-admin.html";
+                else if (role === "MANAGER") window.location.href = "dashboard-manager.html";
+                else window.location.href = "dashboard-customer.html";
+            }, 700);
+        } catch (err) {
+            showToast(err.message || "Login failed", "error");
+            btn.disabled = false; btn.textContent = "Sign In";
+        }
+    });
+
+    // ── Register ──────────────────────────────────────────────────────────
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById("regBtn");
+        btn.disabled = true; btn.textContent = "Creating account…";
+        try {
+            await apiCall(CONFIG.API.AUTH_REGISTER, "POST", {
+                name:     document.getElementById("regName").value,
+                email:    document.getElementById("regEmail").value,
+                nid:      document.getElementById("regNid").value,
+                phone:    document.getElementById("regPhone").value,
+                address:  document.getElementById("regAddress").value,
+                password: document.getElementById("regPassword").value,
+            });
+            showToast("Account created! Please sign in ✅", "success");
+            switchTab("login");
+        } catch (err) {
+            showToast(err.message || "Registration failed", "error");
+            btn.disabled = false; btn.textContent = "Create Account";
+        }
+    });
+</script>
+</body>
+</html>
