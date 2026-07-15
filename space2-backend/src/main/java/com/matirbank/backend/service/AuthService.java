@@ -97,9 +97,10 @@ public class AuthService {
                         if (!plainEmail.equalsIgnoreCase(decryptedEmail)) {
                             return false;
                         }
-                        // [BCrypt] Verify password — never decrypted, re-hashed and compared
                         return passwordEncoder.matches(plainPassword, u.getPassword());
                     } catch (Exception e) {
+                        System.err.println("[Login Error] Failed to verify user ID " + u.getId() + ": " + e.getMessage());
+                        e.printStackTrace();
                         return false;
                     }
                 })
