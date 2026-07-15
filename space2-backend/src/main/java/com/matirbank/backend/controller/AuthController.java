@@ -2,6 +2,7 @@ package com.matirbank.backend.controller;
 
 import com.matirbank.backend.security.LoginAttemptService;
 import com.matirbank.backend.service.AuthService;
+import com.matirbank.backend.service.KeyServiceClient;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,39 @@ public class AuthController {
 
     @Autowired
     private LoginAttemptService loginAttemptService;
+
+    @Autowired
+    private KeyServiceClient keyServiceClient;
+
+    @GetMapping("/debug-connection")
+    public ResponseEntity<?> debugConnection() {
+        java.util.Map<String, Object> report = new java.util.HashMap<>();
+        
+        // 1. Test Key Service connection
+        try {
+            String testKey = keyServiceClient.getOrCreateKey("debug", "test-connection-id");
+            report.put("keyServiceStatus", "SUCCESS");
+            report.put("keyServiceReceivedValue", testKey);
+        } catch (Exception e) {
+            report.put("keyServiceStatus", "FAILED");
+            report.put("keyServiceError", e.getMessage());
+            java.io.StringWriter sw = new java.io.StringWriter();
+            e.printStackTrace(new java.io.PrintWriter(sw));
+            report.put("keyServiceStackTrace", sw.toString());
+        }
+
+        // 2. Test SQLite Database
+        try {
+            long userCount = authService.registerCount();
+            report.put("databaseStatus", "SUCCESS");
+            report.put("databaseUserCount", userCount);
+        } catch (Exception e) {
+            report.put("databaseStatus", "FAILED");
+            report.put("databaseError", e.getMessage());
+        }
+
+        return ResponseEntity.ok(report);
+    }
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody Map<String, String> body) {

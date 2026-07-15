@@ -110,6 +110,10 @@ public class AuthService {
         return jwtUtil.generateToken(matchedUser);
     }
 
+    public long registerCount() {
+        return userRepository.count();
+    }
+
     private int getMaxCustomers() {
         return systemConfigRepository.findByConfigKey(SystemConfig.MAX_CUSTOMERS)
                 .map(c -> Integer.parseInt(c.getConfigValue()))
