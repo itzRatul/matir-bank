@@ -95,30 +95,45 @@ public class ManagerBootstrapRunner implements ApplicationRunner {
     // ── ApplicationRunner entry point ─────────────────────────────────────
 
     @Override
-    @Transactional
     public void run(ApplicationArguments args) {
-        try {
-            // [Bug Fix] Clean up any broken PENDING_ manager left from a previous failed bootstrap.
-            // This happens when the key service was unreachable on first startup.
-            userRepository.findAll().stream()
-                .filter(u -> u.getRole() == User.Role.MANAGER &&
-                             u.getEmail() != null && u.getEmail().startsWith("PENDING_"))
-                .forEach(u -> {
-                    log.warn("[Bootstrap] Removing broken PENDING_ manager record (id={}) from previous failed startup.", u.getId());
-                    userRepository.delete(u);
-                });
-
-            long existing = userRepository.countByRole(User.Role.MANAGER);
-            if (existing > 0) {
-                log.info("[Bootstrap] Primary manager already registered — skipping initialisation.");
-                return;
+        // [Retry Fix] Key Service may still be cold/starting when backend starts.
+        // Retry up to 15 times with 6-second delay (total ~90 seconds wait).
+        int maxRetries = 15;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                log.info("[Bootstrap] Attempt {}/{} — checking system state...", attempt, maxRetries);
+                attemptBootstrap();
+                return; // success — stop retrying
+            } catch (Exception ex) {
+                log.warn("[Bootstrap] Attempt {}/{} failed: {}", attempt, maxRetries, ex.getMessage());
+                if (attempt < maxRetries) {
+                    try { Thread.sleep(6000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return; }
+                } else {
+                    log.error("[Bootstrap] CRITICAL — all {} attempts failed. Manager was NOT initialised.", maxRetries);
+                }
             }
-            log.info("[Bootstrap] Initialising primary system manager...");
-            createSystemManager();
-            log.info("[Bootstrap] Primary system manager initialised successfully.");
-        } catch (Exception ex) {
-            log.error("[Bootstrap] CRITICAL — failed to initialise system manager: {}", ex.getMessage(), ex);
         }
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void attemptBootstrap() {
+        // Clean up any broken PENDING_ manager left from a previous failed bootstrap
+        userRepository.findAll().stream()
+            .filter(u -> u.getRole() == User.Role.MANAGER &&
+                         u.getEmail() != null && u.getEmail().startsWith("PENDING_"))
+            .forEach(u -> {
+                log.warn("[Bootstrap] Removing broken PENDING_ manager (id={}).", u.getId());
+                userRepository.delete(u);
+            });
+
+        long existing = userRepository.countByRole(User.Role.MANAGER);
+        if (existing > 0) {
+            log.info("[Bootstrap] Primary manager already registered — skipping.");
+            return;
+        }
+        log.info("[Bootstrap] Initialising primary system manager...");
+        createSystemManager();
+        log.info("[Bootstrap] Primary system manager initialised successfully.");
     }
 
     /**

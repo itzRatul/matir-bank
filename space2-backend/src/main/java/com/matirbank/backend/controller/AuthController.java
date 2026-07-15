@@ -3,6 +3,7 @@ package com.matirbank.backend.controller;
 import com.matirbank.backend.security.LoginAttemptService;
 import com.matirbank.backend.service.AuthService;
 import com.matirbank.backend.service.KeyServiceClient;
+import com.matirbank.backend.service.ManagerBootstrapRunner;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,31 @@ public class AuthController {
 
     @Autowired
     private KeyServiceClient keyServiceClient;
+
+    @Autowired
+    private ManagerBootstrapRunner bootstrapRunner;
+
+    // Manual bootstrap trigger — safe to call anytime.
+    // Only creates the manager if none exists yet.
+    @PostMapping("/setup")
+    public ResponseEntity<?> setup() {
+        try {
+            bootstrapRunner.attemptBootstrap();
+            return ResponseEntity.ok(Map.of("message", "Setup completed successfully."));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/setup/status")
+    public ResponseEntity<?> setupStatus() {
+        long count = authService.registerCount();
+        return ResponseEntity.ok(Map.of(
+                "hasManager", count > 0,
+                "totalUsers", count
+        ));
+    }
 
     @GetMapping("/debug-connection")
     public ResponseEntity<?> debugConnection() {
