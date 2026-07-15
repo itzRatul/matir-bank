@@ -33,11 +33,11 @@ graph TD
     User([User Browser]) -->|HTTPS| Frontend[Vercel Frontend]
     Frontend -->|REST API Requests| Backend[Space 2: Spring Boot Backend]
     
-    subgraph HuggingFace Space 2 (Main System)
+    subgraph space2 ["HuggingFace Space 2 (Main System)"]
         Backend -->|Reads / Writes| MainDB[(SQLite: data.db)]
     end
     
-    subgraph HuggingFace Space 1 (Security Service)
+    subgraph space1 ["HuggingFace Space 1 (Security Service)"]
         KeyService[Space 1: Key Service API] -->|Reads / Writes| KeyDB[(SQLite: keys.db)]
     end
     
