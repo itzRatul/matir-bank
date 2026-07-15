@@ -10,7 +10,7 @@ const CONFIG = {
     BACKEND_BASE_URL: localStorage.getItem("BACKEND_BASE_URL") || (
         (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
             ? "http://localhost:8080"
-            : "https://your-username-matirbank-backend.hf.space" // Replace with your HuggingFace Space backend URL
+            : "https://matir-bank-backend.onrender.com" // Replace with your HuggingFace Space backend URL
     ),
 
     API: {
