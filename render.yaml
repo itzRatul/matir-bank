@@ -1,0 +1,25 @@
+services:
+  # 1. Key Service (Space 1)
+  - type: web
+    name: matir-bank-keyservice
+    env: docker
+    rootDir: space1-keyservice
+    plan: free
+    envVars:
+      - key: MATIR_BANK_INTERNAL_SECRET
+        generateValue: true
+
+  # 2. Main Backend Service (Space 2)
+  - type: web
+    name: matir-bank-backend
+    env: docker
+    rootDir: space2-backend
+    plan: free
+    envVars:
+      - key: MATIR_BANK_KEYSERVICE_URL
+        value: http://matir-bank-keyservice:7860
+      - key: MATIR_BANK_KEYSERVICE_SECRET
+        fromService:
+          name: matir-bank-keyservice
+          type: web
+          envVarKey: MATIR_BANK_INTERNAL_SECRET
