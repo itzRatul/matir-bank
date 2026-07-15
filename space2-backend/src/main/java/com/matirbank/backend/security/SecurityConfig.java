@@ -67,7 +67,9 @@ public class SecurityConfig {
                 "http://127.0.0.1:3000",
                 "https://*.ngrok.io",      // ngrok tunnels
                 "https://*.ngrok-free.app",
-                "https://*.hf.space"       // HuggingFace Spaces
+                "https://*.hf.space",      // HuggingFace Spaces
+                "https://*.vercel.app",    // Vercel frontends
+                "https://*.onrender.com"   // Render services
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
