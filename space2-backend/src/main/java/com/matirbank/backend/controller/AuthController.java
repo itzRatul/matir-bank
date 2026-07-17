@@ -28,27 +28,6 @@ public class AuthController {
     @Autowired
     private ManagerBootstrapRunner bootstrapRunner;
 
-    // Manual bootstrap trigger — safe to call anytime.
-    // Only creates the manager if none exists yet.
-    @PostMapping("/setup")
-    public ResponseEntity<?> setup() {
-        try {
-            bootstrapRunner.attemptBootstrap();
-            return ResponseEntity.ok(Map.of("message", "Setup completed successfully."));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    @GetMapping("/setup/status")
-    public ResponseEntity<?> setupStatus() {
-        long count = authService.registerCount();
-        return ResponseEntity.ok(Map.of(
-                "hasManager", count > 0,
-                "totalUsers", count
-        ));
-    }
 
     @GetMapping("/debug-connection")
     public ResponseEntity<?> debugConnection() {
