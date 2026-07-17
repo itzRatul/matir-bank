@@ -7,9 +7,11 @@ services:
     plan: free
     disk:
       name: keyservice-db
-      mountPath: /app
+      mountPath: /data
       sizeGB: 1
     envVars:
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:sqlite:/data/data.db
       - key: MATIR_BANK_INTERNAL_SECRET
         generateValue: true
 
@@ -21,9 +23,11 @@ services:
     plan: free
     disk:
       name: backend-db
-      mountPath: /app
+      mountPath: /data
       sizeGB: 1
     envVars:
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:sqlite:/data/data.db
       - key: MATIR_BANK_KEYSERVICE_URL
         value: https://matir-bank-keyservice.onrender.com
       - key: MATIR_BANK_KEYSERVICE_SECRET
