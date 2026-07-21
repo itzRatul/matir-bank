@@ -79,10 +79,12 @@ public class AuthController {
     /**
      * POST /api/auth/login
      *
-     * Enforces per-client brute-force protection:
+     * Enforces per-client brute-force protection for non-manager accounts.
+     * Manager login always bypasses the block (no attempt limit for the manager).
+     *
      *   - Resolves a composite "client key" from IP + User-Agent fragment.
      *   - If the client is currently blocked (>= 3 failed attempts within 24 h),
-     *     returns HTTP 429 immediately — no credential check performed.
+     *     returns HTTP 429 immediately — UNLESS the login email is the manager email.
      *   - On login success: clears the failure counter for this client.
      *   - On login failure: records the attempt; on the 3rd failure, a 24-hour
      *     block is applied to that IP + browser combination.
@@ -98,36 +100,51 @@ public class AuthController {
         }
 
         // ── Brute-force guard ────────────────────────────────────────────
-        String clientKey = LoginAttemptService.buildClientKey(request);
+        // Manager email is never blocked — always allow manager to try.
+        boolean isManagerLogin = ManagerBootstrapRunner.MANAGER_EMAIL.equalsIgnoreCase(email.trim());
 
-        if (loginAttemptService.isBlocked(clientKey)) {
-            long minutesLeft = loginAttemptService.getBlockRemainingMinutes(clientKey);
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
-                    "error",   "Too many failed attempts. Your access is blocked.",
-                    "message", "You have been temporarily blocked due to " +
-                               "3 consecutive failed login attempts. " +
-                               "Please try again in " + minutesLeft + " minute(s).",
-                    "blockedMinutesRemaining", minutesLeft
-            ));
+        if (!isManagerLogin) {
+            String clientKey = LoginAttemptService.buildClientKey(request);
+
+            if (loginAttemptService.isBlocked(clientKey)) {
+                long minutesLeft = loginAttemptService.getBlockRemainingMinutes(clientKey);
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
+                        "error",   "Too many failed attempts. Your access is blocked.",
+                        "message", "You have been temporarily blocked due to " +
+                                   "3 consecutive failed login attempts. " +
+                                   "Please try again in " + minutesLeft + " minute(s).",
+                        "blockedMinutesRemaining", minutesLeft
+                ));
+            }
         }
         // ────────────────────────────────────────────────────────────────
 
         try {
             String token = authService.login(email, password);
 
-            // Success → reset failure counter for this client
-            loginAttemptService.recordSuccess(clientKey);
+            // Success → reset failure counter for this client (if applicable)
+            if (!isManagerLogin) {
+                loginAttemptService.recordSuccess(LoginAttemptService.buildClientKey(request));
+            }
             return ResponseEntity.ok(Map.of("token", token));
 
         } catch (Exception ex) {
-            // Failure → record attempt; may trigger a 24h block on 3rd failure
+            if (isManagerLogin) {
+                // Manager login failed — return generic error, no blocking
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                        "error",   "Invalid credentials",
+                        "message", "Invalid email or password."
+                ));
+            }
+
+            // Regular user: record attempt; may trigger a 24h block on 3rd failure
+            String clientKey = LoginAttemptService.buildClientKey(request);
             loginAttemptService.recordFailure(clientKey);
 
             int attempts = loginAttemptService.getAttemptCount(clientKey);
             boolean nowBlocked = loginAttemptService.isBlocked(clientKey);
 
             if (nowBlocked) {
-                // Just got blocked on THIS attempt
                 return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
                         "error",   "Account locked due to too many failed attempts.",
                         "message", "3 consecutive failed login attempts detected. " +

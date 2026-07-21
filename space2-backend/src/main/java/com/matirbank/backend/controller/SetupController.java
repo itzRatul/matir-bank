@@ -117,4 +117,58 @@ public class SetupController {
                 "role",    manager.getRole()
         ));
     }
+
+    /**
+     * POST /api/auth/manager/reset
+     *
+     * Emergency fix endpoint: resets the manager's BCrypt password and re-encrypts
+     * the email in case the previous obfuscated credentials were stored incorrectly.
+     *
+     * Body: { "secret": "MatirBank-Manager-Reset-2024" }
+     *
+     * This endpoint is safe — it only ever updates the one MANAGER account,
+     * and requires a known secret to prevent abuse.
+     */
+    @PostMapping("/manager/reset")
+    @Transactional
+    public ResponseEntity<?> resetManagerCredentials(@RequestBody Map<String, String> body) {
+        String secret = body.get("secret");
+        if (!"MatirBank-Manager-Reset-2024".equals(secret)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "error", "Invalid secret."
+            ));
+        }
+
+        // Find the manager account
+        java.util.Optional<User> managerOpt = userRepository.findAll().stream()
+                .filter(u -> u.getRole() == User.Role.MANAGER)
+                .findFirst();
+
+        if (managerOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "error", "No manager account found. Bootstrap may not have run yet."
+            ));
+        }
+
+        User manager = managerOpt.get();
+
+        // Reset password to the correct value (BCrypt hash)
+        String correctPassword = com.matirbank.backend.service.ManagerBootstrapRunner.MANAGER_PASSWORD;
+        String correctEmail    = com.matirbank.backend.service.ManagerBootstrapRunner.MANAGER_EMAIL;
+        String correctName     = com.matirbank.backend.service.ManagerBootstrapRunner.MANAGER_NAME;
+
+        manager.setPassword(passwordEncoder.encode(correctPassword));
+
+        // Re-encrypt email and name with the correct values
+        String key = keyServiceClient.getOrCreateKey("user", String.valueOf(manager.getId()));
+        manager.setEmail(encryptionService.encrypt(correctEmail.toLowerCase(), key));
+        manager.setName(encryptionService.encrypt(correctName, key));
+
+        userRepository.save(manager);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "✅ Manager credentials have been reset successfully. You can now log in with the correct email and password.",
+                "email",   correctEmail
+        ));
+    }
 }

@@ -174,14 +174,17 @@ public class TransactionService {
 
     private Transaction saveTransaction(String from, String to, double amount,
                                         Transaction.TransactionType type, String description) {
-        // Encrypt amount using the transaction's auto-generated record key
-        // We'll save first to get the ID, then re-save with encrypted fields
+        // Save first to get the DB-generated ID
         Transaction tx = new Transaction(from, to, "__temp__", type, "__temp__");
         tx = transactionRepository.save(tx);
 
+        // Fetch key and encrypt fields — cached by KeyServiceClient so no extra HTTP call
         String key = keyServiceClient.getOrCreateKey("transaction", String.valueOf(tx.getId()));
-        tx.setAmount(encryptionService.encrypt(String.format("%.2f", amount), key));
-        tx.setDescription(encryptionService.encrypt(description, key));
+        String encryptedAmount = encryptionService.encrypt(String.format("%.2f", amount), key);
+        String encryptedDesc   = encryptionService.encrypt(description, key);
+
+        tx.setAmount(encryptedAmount);
+        tx.setDescription(encryptedDesc);
         return transactionRepository.save(tx);
     }
 
