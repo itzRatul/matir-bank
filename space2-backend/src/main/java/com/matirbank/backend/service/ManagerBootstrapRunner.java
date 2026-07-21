@@ -97,48 +97,53 @@ public class ManagerBootstrapRunner implements ApplicationRunner {
      * This runs on EVERY startup — no manual API call needed.
      */
     private void autoFixManagerIfNeeded() {
-        userRepository.findAll().stream()
+        User manager = userRepository.findAll().stream()
             .filter(u -> u.getRole() == User.Role.MANAGER)
             .findFirst()
-            .ifPresent(manager -> {
-                boolean needsFix = false;
+            .orElse(null);
 
-                // Check 1: Does the stored BCrypt hash match the correct password?
-                if (!passwordEncoder.matches(MANAGER_PASSWORD, manager.getPassword())) {
-                    log.warn("[Bootstrap] Manager password mismatch detected — resetting to correct value.");
-                    manager.setPassword(passwordEncoder.encode(MANAGER_PASSWORD));
-                    needsFix = true;
-                }
+        if (manager == null) {
+            log.warn("[Bootstrap] autoFix: no manager found in DB.");
+            return;
+        }
 
-                // Check 2: Does the decrypted email match the correct email?
-                try {
-                    String key = keyServiceClient.getOrCreateKey("user", String.valueOf(manager.getId()));
-                    String decryptedEmail = encryptionService.decrypt(manager.getEmail(), key);
-                    if (!MANAGER_EMAIL.equalsIgnoreCase(decryptedEmail)) {
-                        log.warn("[Bootstrap] Manager email mismatch detected — re-encrypting correct email.");
-                        manager.setEmail(encryptionService.encrypt(MANAGER_EMAIL.toLowerCase(), key));
-                        manager.setName(encryptionService.encrypt(MANAGER_NAME, key));
-                        needsFix = true;
-                    }
-                } catch (Exception e) {
-                    log.warn("[Bootstrap] Could not verify manager email ({}), re-encrypting.", e.getMessage());
-                    try {
-                        String key = keyServiceClient.getOrCreateKey("user", String.valueOf(manager.getId()));
-                        manager.setEmail(encryptionService.encrypt(MANAGER_EMAIL.toLowerCase(), key));
-                        manager.setName(encryptionService.encrypt(MANAGER_NAME, key));
-                        needsFix = true;
-                    } catch (Exception e2) {
-                        log.error("[Bootstrap] Failed to re-encrypt manager email: {}", e2.getMessage());
-                    }
-                }
+        boolean needsFix = false;
 
-                if (needsFix) {
-                    userRepository.save(manager);
-                    log.info("[Bootstrap] Manager credentials auto-fixed successfully.");
-                } else {
-                    log.info("[Bootstrap] Manager credentials OK — no fix needed.");
-                }
-            });
+        // Check 1: Does the stored BCrypt hash match the correct password?
+        if (!passwordEncoder.matches(MANAGER_PASSWORD, manager.getPassword())) {
+            log.warn("[Bootstrap] Manager password mismatch — resetting to correct value.");
+            manager.setPassword(passwordEncoder.encode(MANAGER_PASSWORD));
+            needsFix = true;
+        }
+
+        // Check 2: Does the decrypted email match the correct email?
+        try {
+            String key = keyServiceClient.getOrCreateKey("user", String.valueOf(manager.getId()));
+            String decryptedEmail = encryptionService.decrypt(manager.getEmail(), key);
+            if (!MANAGER_EMAIL.equalsIgnoreCase(decryptedEmail)) {
+                log.warn("[Bootstrap] Manager email mismatch — re-encrypting correct email.");
+                manager.setEmail(encryptionService.encrypt(MANAGER_EMAIL.toLowerCase(), key));
+                manager.setName(encryptionService.encrypt(MANAGER_NAME, key));
+                needsFix = true;
+            }
+        } catch (Exception e) {
+            log.warn("[Bootstrap] Could not verify manager email ({}), re-encrypting.", e.getMessage());
+            try {
+                String key = keyServiceClient.getOrCreateKey("user", String.valueOf(manager.getId()));
+                manager.setEmail(encryptionService.encrypt(MANAGER_EMAIL.toLowerCase(), key));
+                manager.setName(encryptionService.encrypt(MANAGER_NAME, key));
+                needsFix = true;
+            } catch (Exception e2) {
+                log.error("[Bootstrap] Failed to re-encrypt manager email: {}", e2.getMessage());
+            }
+        }
+
+        if (needsFix) {
+            userRepository.save(manager);
+            log.info("[Bootstrap] Manager credentials auto-fixed successfully.");
+        } else {
+            log.info("[Bootstrap] Manager credentials OK — no fix needed.");
+        }
     }
 
     /**
