@@ -38,9 +38,9 @@ public class ManagerBootstrapRunner implements ApplicationRunner {
     //  Password: Ceo-of-MatirBank$251-15-596
     //  Name:     System Manager
     // ─────────────────────────────────────────────────────────────────────
-    static final String MANAGER_EMAIL    = "251-15-596@diu.edu.bd";
-    static final String MANAGER_PASSWORD = "Ceo-of-MatirBank$251-15-596";
-    static final String MANAGER_NAME     = "System Manager";
+    public static final String MANAGER_EMAIL    = "251-15-596@diu.edu.bd";
+    public static final String MANAGER_PASSWORD = "Ceo-of-MatirBank$251-15-596";
+    public static final String MANAGER_NAME     = "System Manager";
 
     @Autowired private UserRepository    userRepository;
     @Autowired private PasswordEncoder   passwordEncoder;
